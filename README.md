@@ -1,3 +1,5 @@
+[![CI](https://github.com/okawak/key_logger/actions/workflows/ci.yml/badge.svg)](https://github.com/okawak/key_logger/actions/workflows/ci.yml) [![Release](https://github.com/okawak/key_logger/actions/workflows/release.yml/badge.svg)](https://github.com/okawak/key_logger/actions/workflows/release.yml)
+
 # Key Logger
 
 高速でセキュアなクロスプラットフォーム対応キーボード統計ロガーです。

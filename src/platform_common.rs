@@ -1,7 +1,4 @@
-use crate::{
-    error::{KeyLoggerError, Result},
-    stats,
-};
+use crate::{error::Result, stats};
 #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 use device_query::{DeviceQuery, DeviceState, Keycode};
 use log::{debug, error};
@@ -31,7 +28,7 @@ fn inner_setup() -> Result<()> {
         use std::thread::Builder;
 
         let mut signals = Signals::new([SIGINT, SIGTERM, SIGHUP]).map_err(|e| {
-            KeyLoggerError::SignalHandling {
+            crate::error::KeyLoggerError::SignalHandling {
                 source: Box::new(e),
             }
         })?;

@@ -36,7 +36,7 @@ pub fn export_to_csv_with_path(
     #[cfg(windows)]
     {
         use csv::Terminator;
-        builder = builder.terminator(Terminator::CRLF);
+        builder.terminator(Terminator::CRLF);
     }
 
     let mut wtr = builder.from_writer(writer);
