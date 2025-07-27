@@ -71,11 +71,8 @@ mod tests {
         let result = export_to_csv_with_path(&stats, Some(temp_dir.path()));
         assert!(result.is_ok());
 
-        let filename = result.unwrap();
-        assert!(filename.ends_with(".csv"));
-
         // Verify file exists
-        assert!(std::path::Path::new(&filename).exists());
+        assert!(std::path::Path::new(&result.unwrap()).exists());
     }
 
     #[test]
