@@ -1,0 +1,63 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "*"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-release:
+    name: Build Release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            binary_name: key_logger
+            asset_name: key_logger-macos-intel
+            content_type: application/octet-stream
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            binary_name: key_logger
+            asset_name: key_logger-macos-apple
+            content_type: application/octet-stream
+          - os: windows-latest
+            target: x86_64-pc-windows-gnu
+            binary_name: key_logger.exe
+            asset_name: key_logger-windows.exe
+            content_type: application/octet-stream
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt, clippy
+
+      - name: Install cross-compilation tools
+        if: matrix.target == 'x86_64-pc-windows-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64
+
+      - name: Add target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Build release
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: ./target/${{ matrix.target }}/release/${{ matrix.binary_name }}
+          name: ${{ matrix.asset_name }}
+          generate_release_notes: true
