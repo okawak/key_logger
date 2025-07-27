@@ -48,7 +48,9 @@
 
 ### macOS
 ```bash
-./key_logger
+cd /path/to/downloaded/binary
+chmod +x key_logger-macos-apple # Apple Siliconの場合
+./key_logger-macos-apple
 ```
 **初回実行時**: システム環境設定 → プライバシー → アクセシビリティで権限を許可してください。
 
@@ -57,11 +59,11 @@
 .\key_logger.exe
 ```
 
-> 管理者権限で実行する必要があります。
-
 ### Linux
 ```bash
-./key_logger
+cd /path/to/downloaded/binary
+chmod +x key_logger-linux
+./key_logger-linux
 ```
 
 **共通**: `Ctrl+C`で停止してCSV出力します。
