@@ -99,16 +99,21 @@ mod tests {
         assert!(result.is_ok());
 
         let filename = result.unwrap();
-        
+
         // Use csv crate to parse content in a platform-independent way
         let file = std::fs::File::open(&filename).unwrap();
         let mut reader = csv::ReaderBuilder::new()
             .has_headers(true)
             .from_reader(file);
-        
-        let headers: Vec<String> = reader.headers().unwrap().iter().map(|s| s.to_string()).collect();
+
+        let headers: Vec<String> = reader
+            .headers()
+            .unwrap()
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
         assert_eq!(headers, vec!["Key", "Count"]);
-        
+
         let mut records: Vec<(String, u64)> = Vec::new();
         for result in reader.records() {
             let record = result.unwrap();
@@ -116,94 +121,100 @@ mod tests {
             let count = record[1].parse::<u64>().unwrap();
             records.push((key, count));
         }
-        
+
         // Check that all expected records are present
         assert!(records.iter().any(|(k, c)| k == "A" && *c == 5));
         assert!(records.iter().any(|(k, c)| k == "B" && *c == 3));
-        
+
         // Check that records are sorted by count (descending)
         for i in 1..records.len() {
             let (prev_key, prev_count) = &records[i - 1];
             let (curr_key, curr_count) = &records[i];
-            
+
             // If counts are different, previous should be >= current
             if prev_count != curr_count {
-                assert!(prev_count >= curr_count, 
-                    "Records not sorted by count: {} ({}) should come before {} ({})", 
-                    prev_key, prev_count, curr_key, curr_count);
+                assert!(
+                    prev_count >= curr_count,
+                    "Records not sorted by count: {prev_key} ({prev_count}) should come before {curr_key} ({curr_count})",
+                );
             }
         }
     }
-    
+
     #[test]
     fn test_csv_line_endings_cross_platform() {
         let temp_dir = TempDir::new().unwrap();
         let mut stats = HashMap::new();
         stats.insert("Enter", 10);
         stats.insert("Tab", 5);
-        
+
         let result = export_to_csv_with_path(&stats, Some(temp_dir.path()));
         assert!(result.is_ok());
-        
+
         let filename = result.unwrap();
         let content = std::fs::read_to_string(&filename).unwrap();
-        
+
         // Verify that content contains expected data regardless of line endings
         assert!(content.contains("Key,Count"));
         assert!(content.contains("Enter,10"));
         assert!(content.contains("Tab,5"));
-        
+
         // Test with CSV parser to ensure proper parsing regardless of line endings
         let file = std::fs::File::open(&filename).unwrap();
         let mut reader = csv::ReaderBuilder::new().from_reader(file);
-        
+
         let record_count = reader.records().count();
         assert_eq!(record_count, 2); // Should have exactly 2 data records
     }
-    
+
     #[test]
     fn test_empty_stats_export() {
         let temp_dir = TempDir::new().unwrap();
         let stats = HashMap::new();
-        
+
         let result = export_to_csv_with_path(&stats, Some(temp_dir.path()));
         assert!(result.is_ok());
-        
+
         let filename = result.unwrap();
         let file = std::fs::File::open(&filename).unwrap();
         let mut reader = csv::ReaderBuilder::new().from_reader(file);
-        
+
         // Should still have headers
-        let headers: Vec<String> = reader.headers().unwrap().iter().map(|s| s.to_string()).collect();
+        let headers: Vec<String> = reader
+            .headers()
+            .unwrap()
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
         assert_eq!(headers, vec!["Key", "Count"]);
-        
+
         // But no data records
         let record_count = reader.records().count();
         assert_eq!(record_count, 0);
     }
-    
+
     #[test]
     fn test_large_counts() {
         let temp_dir = TempDir::new().unwrap();
         let mut stats = HashMap::new();
         stats.insert("Space", u64::MAX);
         stats.insert("A", 999_999_999);
-        
+
         let result = export_to_csv_with_path(&stats, Some(temp_dir.path()));
         assert!(result.is_ok());
-        
+
         let filename = result.unwrap();
         let file = std::fs::File::open(&filename).unwrap();
         let mut reader = csv::ReaderBuilder::new().from_reader(file);
-        
+
         let mut found_max = false;
         let mut found_large = false;
-        
+
         for result in reader.records() {
             let record = result.unwrap();
             let key = &record[0];
             let count = record[1].parse::<u64>().unwrap();
-            
+
             if key == "Space" && count == u64::MAX {
                 found_max = true;
             }
@@ -211,7 +222,7 @@ mod tests {
                 found_large = true;
             }
         }
-        
+
         assert!(found_max, "Failed to find u64::MAX value");
         assert!(found_large, "Failed to find large count value");
     }
