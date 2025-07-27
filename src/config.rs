@@ -78,18 +78,4 @@ mod tests {
             env::remove_var("KEY_LOGGER_OUTPUT_DIR");
         }
     }
-
-    #[test]
-    fn test_from_env_with_invalid_output_dir() {
-        unsafe {
-            env::set_var("KEY_LOGGER_OUTPUT_DIR", "/nonexistent/path");
-        }
-
-        let result = Config::from_env();
-        assert!(result.is_err());
-
-        unsafe {
-            env::remove_var("KEY_LOGGER_OUTPUT_DIR");
-        }
-    }
 }

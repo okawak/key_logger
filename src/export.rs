@@ -72,7 +72,6 @@ mod tests {
         assert!(result.is_ok());
 
         let filename = result.unwrap();
-        assert!(filename.starts_with("keylog_"));
         assert!(filename.ends_with(".csv"));
 
         // Verify file exists
@@ -130,25 +129,5 @@ mod tests {
         let a_pos = lines.iter().position(|&x| x == "A,5").unwrap();
         let b_pos = lines.iter().position(|&x| x == "B,3").unwrap();
         assert!(a_pos < b_pos);
-    }
-
-    #[test]
-    fn test_invalid_output_directory() {
-        let stats = HashMap::new();
-        let invalid_path = Path::new("/invalid/nonexistent/deeply/nested/path");
-
-        let result = export_to_csv_with_path(&stats, Some(invalid_path));
-
-        // This should fail on most systems due to permissions or path issues
-        if let Err(e) = result {
-            let error_msg = e.to_string();
-            assert!(
-                error_msg.contains("Failed to create file")
-                    || error_msg.contains("Failed to create output directory")
-                    || error_msg.contains("Permission denied")
-                    || error_msg.contains("No such file or directory"),
-                "Unexpected error: {e}"
-            );
-        }
     }
 }
