@@ -57,6 +57,12 @@ jobs:
       - name: Add target
         run: rustup target add ${{ matrix.target }}
 
+      - name: Prepare release asset
+        shell: bash
+        run: |
+          mkdir -p release-assets
+          cp ./target/${{ matrix.target }}/release/${{ matrix.binary_name }} release-assets/${{ matrix.asset_name }}
+
       - name: Build release
         run: cargo build --release --target ${{ matrix.target }}
 
@@ -65,8 +71,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: ./target/${{ matrix.target }}/release/${{ matrix.binary_name }}
-          name: ${{ matrix.asset_name }}
+          files: release-assets/${{ matrix.asset_name }}
           draft: false
           prerelease: false
           generate_release_notes: true
