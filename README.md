@@ -1,10 +1,10 @@
 # Key Logger
 
-クロスプラットフォーム対応キーボード統計ロガーです。
+高速でセキュアなクロスプラットフォーム対応キーボード統計ロガーです。
 
 ## セキュリティ保証
 
-**機密情報は一切記録されません**
+**機密情報は一切記録されません(はず)**
 
 > オープンソースなので、セキュリティが不安な方はコードを確認して下さい。
 
@@ -23,48 +23,54 @@
 }
 ```
 
-**メモリ使用量**: 約3MB（統計データは最大2.4KB、長時間使用でも増加しません(多分)）
+**メモリ使用量**: 約3MB（統計データは最大2.4KB、長時間使用でも増加しません）
 
 ## 機能
 
-- クロスプラットフォーム対応（macOS・Windows）
-- リアルタイムキー押下統計・CSVエクスポート
-- 軽量・高速・インストール不要
+- **クロスプラットフォーム対応**（macOS・Windows・Linux）
+- **高速キー監視**（最適化されたポーリング処理）
+- **軽量・高速**・インストール不要
+- **標準ログ**（`log`クレートを使用）
+- **バッチ処理**（効率的なキー記録）
 
 ## インストール
 
-[リリースページ](https://github.com/okawak/key_logger/releases)からマシンに合ったのバイナリをダウンロードしてください。
+[リリースページ](https://github.com/okawak/key_logger/releases)からお使いのプラットフォーム用のバイナリをダウンロードしてください。
 
 - **macOS (Intel)**: `key_logger-macos-intel`
 - **macOS (Apple Silicon)**: `key_logger-macos-apple`
 - **Windows**: `key_logger-windows.exe`
+- **Linux**: `key_logger-linux`
 
 ## 使用方法
 
 ### macOS
-
 ```bash
 ./key_logger
 ```
 **初回実行時**: システム環境設定 → プライバシー → アクセシビリティで権限を許可してください。
 
 ### Windows
-
 ```powershell
 .\key_logger.exe
 ```
 
-**初回実行時**: 管理者権限で実行してください。
+> 管理者権限で実行する必要があります。
+
+### Linux
+```bash
+./key_logger
+```
 
 **共通**: `Ctrl+C`で停止してCSV出力します。
 
 **環境変数**:
-- `KEY_LOGGER_OUTPUT_DIR`: 出力先ディレクトリ
+- `KEY_LOGGER_OUTPUT_DIR`: 出力先ディレクトリ（省略時は現在のディレクトリ）
 - `RUST_LOG`: ログレベル (`error`, `warn`, `info`, `debug`)
 
 ## 出力
 
-タイムスタンプ付きCSVファイル（例：`keylog_2025-07-23_14-30-00.csv`）
+タイムスタンプ付きCSVファイル（例：`keylog_2025-07-27_14-30-00.csv`）
 
 ```csv
 Key,Count
@@ -74,6 +80,25 @@ T,156
 A,134
 ```
 
+### 出力例
+
+```
+[INFO] Key Logger starting...
+[INFO] Press Ctrl+C to stop and save statistics
+[INFO] Output directory: (current working directory)
+^C
+[INFO] Received exit signal, saving statistics...
+[INFO] Saving statistics...
+[INFO] Statistics saved to: keylog_2025-07-27_14-30-00.csv
+[INFO] Total key presses: 1247
+[INFO] Unique keys pressed: 23
+[INFO] Top 10 most pressed keys:
+[INFO] 1. Space: 245
+[INFO] 2. E: 189
+[INFO] 3. T: 156
+...
+```
+
 ## 開発者向け
 
 ```bash
@@ -81,7 +106,20 @@ A,134
 cargo build --release
 cargo test
 cargo clippy
+
+# デバッグ実行
+RUST_LOG=debug ./key_logger
+
+# 特定ディレクトリに出力
+KEY_LOGGER_OUTPUT_DIR=/tmp ./key_logger
 ```
+
+## パフォーマンス最適化
+
+- **静的文字列使用**: キー名に`&'static str`を使用してメモリ効率を向上
+- **バッチ処理**: 複数キーを一度に処理して統計更新を最適化
+- **事前割り当て**: ハッシュマップとベクターの容量を事前確保
+- **メモリ効率**: u64カウンターで大きな数値もサポート
 
 ## ライセンス
 

@@ -33,7 +33,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-mingw-w64-x86-64
+          sudo apt-get install -y gcc-mingw-w64-x86-64 libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
 
       - name: Install dependencies (macOS)
         if: matrix.os == 'macos-latest'
@@ -91,10 +91,14 @@ jobs:
             target: aarch64-apple-darwin
             binary_name: key_logger
             archive_name: key_logger-macos-apple.tar.gz
-          - os: ubuntu-latest
-            target: x86_64-pc-windows-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
             binary_name: key_logger.exe
             archive_name: key_logger-windows.zip
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary_name: key_logger
+            archive_name: key_logger-linux.tar.gz
 
     steps:
       - uses: actions/checkout@v4
@@ -106,11 +110,11 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: Install cross-compilation tools
-        if: matrix.target == 'x86_64-pc-windows-gnu'
+      - name: Install Linux dependencies
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-mingw-w64-x86-64
+          sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
 
       - name: Add target
         run: rustup target add ${{ matrix.target }}
