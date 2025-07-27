@@ -5,15 +5,31 @@ on:
     tags:
       - "*"
 
+permissions:
+  contents: write
+
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  create-release:
+    name: Create release (once)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or ensure release exists
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+
   build-release:
     name: Build Release
+    needs: create-release
     runs-on: ${{ matrix.os }}
-    permissions:
-      contents: write
     strategy:
       matrix:
         include:
@@ -66,12 +82,7 @@ jobs:
           mkdir -p release-assets
           cp ./target/${{ matrix.target }}/release/${{ matrix.binary_name }} release-assets/${{ matrix.asset_name }}
 
-      - name: Upload Release Asset
-        uses: softprops/action-gh-release@v2
+      - name: Upload asset to existing release
+        run: gh release upload "${{ github.ref_name }}" "release-assets/${{ matrix.asset_name }}" --clobber
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          files: release-assets/${{ matrix.asset_name }}
-          draft: false
-          prerelease: false
-          generate_release_notes: true
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
