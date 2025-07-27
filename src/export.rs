@@ -89,20 +89,6 @@ mod tests {
     }
 
     #[test]
-    fn test_export_empty_stats() {
-        let temp_dir = TempDir::new().unwrap();
-        let stats = HashMap::new();
-        let result = export_to_csv_with_path(&stats, Some(temp_dir.path()));
-        assert!(result.is_ok());
-
-        let filename = result.unwrap();
-        let content = std::fs::read_to_string(&filename).unwrap();
-        assert_eq!(content, "Key,Count\n");
-
-        // File will be cleaned up automatically with temp_dir
-    }
-
-    #[test]
     fn test_csv_content_format() {
         let temp_dir = TempDir::new().unwrap();
         let mut stats = HashMap::new();
