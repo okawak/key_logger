@@ -174,6 +174,7 @@ fn keycode_to_str(k: Keycode) -> &'static str {
         Keycode::Comma => "Comma",
         Keycode::Dot => "Period",
         Keycode::Semicolon => "Semicolon",
+        Keycode::Apostrophe => "Apostrophe",
         Keycode::Grave => "Grave",
         Keycode::Minus => "Minus",
         Keycode::Equal => "Equal",
@@ -224,6 +225,5 @@ fn keycode_to_str(k: Keycode) -> &'static str {
         Keycode::NumpadEnter => "NumpadEnter",
         Keycode::NumpadEquals => "NumpadEquals",
         Keycode::NumpadDecimal => "NumpadDecimal",
-        _ => "Unknown",
     }
 }
