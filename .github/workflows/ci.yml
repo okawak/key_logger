@@ -70,7 +70,7 @@ jobs:
         run: cargo clippy -- -D warnings
 
       - name: Build (native)
-        run: cargo build --verbose
+        run: cargo build --verbose -p key_logger
 
       - name: Run tests
         run: cargo test --verbose
@@ -120,7 +120,7 @@ jobs:
         run: rustup target add ${{ matrix.target }}
 
       - name: Build release
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --target ${{ matrix.target }} -p key_logger
 
       - name: Create archive (Unix)
         if: runner.os != 'Windows'

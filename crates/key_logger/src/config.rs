@@ -12,20 +12,19 @@ impl Config {
     pub fn from_env() -> Result<Self> {
         let mut config = Self::default();
 
-        if let Ok(output_dir) = env::var(ENV_KEY_OUTPUT_DIR) {
-            if !output_dir.trim().is_empty() {
-                let path = PathBuf::from(output_dir);
+        if let Ok(output_dir) = env::var(ENV_KEY_OUTPUT_DIR)
+            && !output_dir.trim().is_empty()
+        {
+            let path = PathBuf::from(output_dir);
 
-                // If the path already exists but is not a directory, reject early.
-                if path.exists() && !path.is_dir() {
-                    return Err(KeyLoggerError::InvalidConfiguration(format!(
-                        "Output path is not a directory: {}",
-                        path.display()
-                    )));
-                }
-
-                config.output_dir = Some(path);
+            // If the path already exists but is not a directory, reject early.
+            if path.exists() && !path.is_dir() {
+                return Err(KeyLoggerError::InvalidConfiguration(format!(
+                    "Output path is not a directory: {}",
+                    path.display()
+                )));
             }
+            config.output_dir = Some(path);
         }
         Ok(config)
     }

@@ -74,7 +74,7 @@ jobs:
         run: rustup target add ${{ matrix.target }}
 
       - name: Build release
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release --target ${{ matrix.target }} -p key_logger
 
       - name: Prepare release asset
         shell: bash
