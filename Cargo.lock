@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "analizer"
-version = "0.1.4"
+version = "0.1.5"
 
 [[package]]
 name = "android-tzdata"
@@ -330,7 +330,7 @@ dependencies = [
 
 [[package]]
 name = "key_logger"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "anyhow",
  "chrono",
