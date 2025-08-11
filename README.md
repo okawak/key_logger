@@ -1,4 +1,4 @@
-[![CI](https://github.com/okawak/key_logger/actions/workflows/ci.yml/badge.svg)](https://github.com/okawak/key_logger/actions/workflows/ci.yml) [![Release](https://github.com/okawak/key_logger/actions/workflows/release.yml/badge.svg)](https://github.com/okawak/key_logger/actions/workflows/release.yml)
+[![CI](https://github.com/okawak/key_logger/actions/workflows/ci.yml/badge.svg)](https://github.com/okawak/key_logger/actions/workflows/ci.yml) [![Release](https://github.com/okawak/key_logger/actions/workflows/release.yml/badge.svg)](https://github.com/okawak/key_logger/actions/workflows/release.yml) [![Versioning](https://github.com/okawak/key_logger/actions/workflows/version.yml/badge.svg)](https://github.com/okawak/key_logger/actions/workflows/version.yml) [![Security Audit](https://github.com/okawak/key_logger/actions/workflows/security.yml/badge.svg)](https://github.com/okawak/key_logger/actions/workflows/security.yml)
 
 # Key Logger
 

@@ -1,4 +1,4 @@
-name: Release Plugin
+name: Versioning
 
 on:
   push:
@@ -27,12 +27,12 @@ jobs:
 
       - name: Update Cargo.lock
         run: |
-          cargo update
+          cargo update -w
 
       - name: Commit and Push Version Updates
         run: |
           git config --local user.email "actions@github.com"
           git config --local user.name "GitHub Actions"
-          git add .
+          git add Cargo.toml Cargo.lock
           git commit -m "Update version to ${{ steps.get_version.outputs.VERSION }}" || exit 0
           git push origin HEAD:main
