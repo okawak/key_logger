@@ -113,31 +113,31 @@ pub fn solve_layout(
     // 4) モデルを立てる
     let mut vars = ProblemVariables::new();
 
-    // x_i（二値）：通常キー候補
+    // x^g_{k,j,w}（二値）：通常キー配置変数
     let x_vars: Vec<Variable> = (0..cands.len())
         .map(|_| vars.add(variable().binary()))
         .collect();
 
-    // a_u（二値）：ブロック使用
+    // a^g_u（二値）：ブロック占有変数
     let a_vars: Vec<Variable> = (0..blocks.len())
         .map(|_| vars.add(variable().binary()))
         .collect();
 
-    // m_{d,u}：矢印4種×ブロック
+    // m^g_{a,u}：矢印キー配置変数（4種×ブロック）
     let arrow_names = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
     let mut m_vars: HashMap<(&'static str, usize), Variable> = HashMap::new();
-    for d in &arrow_names {
+    for a in &arrow_names {
         for u in 0..blocks.len() {
-            m_vars.insert((*d, u), vars.add(variable().binary()));
+            m_vars.insert((*a, u), vars.add(variable().binary()));
         }
     }
 
-    // r_u（二値）：フローの根
+    // r^g_u（二値）：フロー根変数
     let r_vars: Vec<Variable> = (0..blocks.len())
         .map(|_| vars.add(variable().binary()))
         .collect();
 
-    // f_e（連結フロー）
+    // f^g_{(u→v)}（連続）：フロー変数
     #[derive(Clone)]
     struct Edge {
         from: usize,
@@ -151,14 +151,15 @@ pub fn solve_layout(
         .map(|_| vars.add(variable().min(0.0)))
         .collect();
 
-    // 目的関数
+    // 目的関数: Σ f_k·T^g(j,w)·x^g_{k,j,w} + Σ f_a·T^g_arrow(u)·m^g_{a,u}
     let mut obj = Expression::from(0.0);
+    // 通常キー項: Σ_{k∈K} Σ_{j∈I^g_k} Σ_{w∈W_k} f_k·T^g(j,w)·x^g_{k,j,w}
     for (i, cand) in cands.iter().enumerate() {
-        let fk = *freqs.get(&cand.key).unwrap_or(&0u64) as f64;
-        let width_pen = opt.lambda_width * (cand.w_u as f64);
-        obj += (fk * (cand.cost_ms + width_pen)) * x_vars[i];
+        let f_k = *freqs.get(&cand.key).unwrap_or(&0u64) as f64;
+        let width_penalty = opt.lambda_width * (cand.w_u as f64);
+        obj += (f_k * (cand.cost_ms + width_penalty)) * x_vars[i];
     }
-    // 矢印（各ブロックに置いたときの Fitts コスト）
+    // 矢印キー項: Σ_{a∈A} Σ_{u∈U^g} f_a·T^g_arrow(u)·m^g_{a,u}
     for (u, blk) in blocks.iter().enumerate() {
         let center_cell = blk.cover_cells[2]; // 中央近傍
         let finger = geom.cells[center_cell.row][center_cell.col].finger;
@@ -170,11 +171,11 @@ pub fn solve_layout(
         let d_u = euclid_u(blk.center, home) as f64 * opt.u2mm;
         let w_mm = 1.0f64 * opt.u2mm;
         let t_ms = opt.a_ms + opt.b_ms * ((d_u / w_mm + 1.0).log2());
-        for &d in &arrow_names {
-            let fd = *freqs.get(d).unwrap_or(&0u64) as f64;
-            if fd > 0.0 {
-                let mv = m_vars.get(&(d, u)).unwrap();
-                obj += (fd * t_ms) * *mv;
+        for &a in &arrow_names {
+            let f_a = *freqs.get(a).unwrap_or(&0u64) as f64;
+            if f_a > 0.0 {
+                let m_au = m_vars.get(&(a, u)).unwrap();
+                obj += (f_a * t_ms) * *m_au;
             }
         }
     }
@@ -182,11 +183,11 @@ pub fn solve_layout(
     // 目的関数を後で評価するために保存
     let objective_expr = obj.clone();
 
-    // 5) 制約
+    // 5) 制約条件
 
     let mut model = vars.minimise(obj).using(coin_cbc);
 
-    // (i) 各キーは高々1配置（=必須なら Exactly1 にする）
+    // (i) 一意性制約: Σ_{j∈I^g_k} Σ_{w∈W_k} x^g_{k,j,w} = 1 ∀k∈K
     for key in movable.iter() {
         let idxs: Vec<usize> = cands
             .iter()
@@ -196,7 +197,7 @@ pub fn solve_layout(
             .collect();
         if !idxs.is_empty() {
             let sum: Expression = idxs.iter().map(|i| x_vars[*i]).sum();
-            // 必須配置（頻度>0なら）
+            // 頻度>0のキーは必須配置
             if *freqs.get(key).unwrap_or(&0) > 0 {
                 model = model.with(sum.clone().eq(1));
             } else {
@@ -205,8 +206,7 @@ pub fn solve_layout(
         }
     }
 
-    // (ii) セル非重複（固定文字 + 通常キー + 矢印ブロック）
-    // 各セル j'： Σ x(セルを覆う) + Σ a(ブロックがそのセルを覆う) + fixed <= 1
+    // (ii) セル非重複制約: Σ C(j',j,w)·x^g_{k,j,w} + Σ B(j',u)·a^g_u + F^g_{j'} ≤ 1 ∀j'∈J_g
     let mut cell_cover_x: HashMap<CellId, Vec<usize>> = HashMap::new();
     for (i, cand) in cands.iter().enumerate() {
         for cid in &cand.cover_cells {
@@ -240,30 +240,27 @@ pub fn solve_layout(
         }
     }
 
-    // (iii) 矢印：各方向は1つのブロックに割り当て
-    for &d in &arrow_names {
+    // (iii) 矢印キー一意性制約: Σ_{u∈U_g} m^g_{a,u} = 1 ∀a∈A
+    for &a in &arrow_names {
         let sum: Expression = (0..blocks.len())
-            .map(|u| *m_vars.get(&(d, u)).unwrap())
+            .map(|u| *m_vars.get(&(a, u)).unwrap())
             .sum();
-        // 頻度0なら置かない/置いても重みゼロだが、通常はExactly1を維持
         model = model.with(sum.eq(1));
     }
-    // (iv) ブロック使用 a_u と m_{d,u} の整合
+    // (iv) ブロック占有整合性制約: Σ_{a∈A} m^g_{a,u} ≤ a^g_u ∀u∈U^g
     for (u, _) in a_vars.iter().enumerate().take(blocks.len()) {
-        let sum_d: Expression = arrow_names
+        let sum_a: Expression = arrow_names
             .iter()
-            .map(|d| *m_vars.get(&(*d, u)).unwrap())
+            .map(|a| *m_vars.get(&(*a, u)).unwrap())
             .sum();
-        model = model.with(sum_d << a_vars[u]);
+        model = model.with(sum_a << a_vars[u]);
     }
-    // (v) 使用ブロックはちょうど4
-    let sum_a: Expression = (0..blocks.len()).map(|u| a_vars[u]).sum();
-    model = model.with(sum_a.eq(4));
+    // (v) 矢印キー総数制約: Σ_{u∈U_g} a^g_u = 4
+    let sum_a_total: Expression = (0..blocks.len()).map(|u| a_vars[u]).sum();
+    model = model.with(sum_a_total.eq(4));
 
-    // (vi) 連結性（単一フロー）
-    //   Σin f - Σout f = a_u - 4 r_u
-    //   Σ r_u = 1
-    //   0 <= f_e <= 3 a_from
+    // (vi) 矢印キー連結制約（フロー保存）
+    // フロー根一意性: Σ_{u∈U_g} r^g_u = 1
     let sum_r: Expression = (0..blocks.len()).map(|u| r_vars[u]).sum();
     model = model.with(sum_r.eq(1));
 
@@ -274,11 +271,13 @@ pub fn solve_layout(
         out_edges[e.from].push(e_idx);
         in_edges[e.to].push(e_idx);
     }
+    // フロー保存則: Σ f^g_{(v→u)} - Σ f^g_{(u→v)} = a^g_u - 4r^g_u ∀u∈U_g
     for u in 0..blocks.len() {
         let sum_in: Expression = in_edges[u].iter().map(|&ei| f_vars[ei]).sum();
         let sum_out: Expression = out_edges[u].iter().map(|&ei| f_vars[ei]).sum();
         model = model.with((sum_in - sum_out).eq(a_vars[u] - 4 * r_vars[u]));
     }
+    // フロー容量制約: 0 ≤ f^g_{(u→v)} ≤ 3a^g_u ∀(u→v)∈E_g
     for (e_idx, e) in edges.iter().enumerate() {
         model = model.with(f_vars[e_idx] << (3.0 * a_vars[e.from]));
     }
@@ -296,10 +295,10 @@ pub fn solve_layout(
         }
     }
     let mut arrow_place = HashMap::new();
-    for &d in &arrow_names {
+    for &a in &arrow_names {
         for (u, block) in blocks.iter().enumerate() {
-            if sol.value(*m_vars.get(&(d, u)).unwrap()) > 0.5 {
-                arrow_place.insert(d.to_string(), block.id);
+            if sol.value(*m_vars.get(&(a, u)).unwrap()) > 0.5 {
+                arrow_place.insert(a.to_string(), block.id);
             }
         }
     }

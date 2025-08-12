@@ -12,6 +12,9 @@ impl Config {
     pub fn from_env() -> Result<Self> {
         let mut config = Self::default();
 
+        // Set default output directory to "./csv"
+        let default_output_dir = PathBuf::from("csv");
+
         if let Ok(output_dir) = env::var(ENV_KEY_OUTPUT_DIR)
             && !output_dir.trim().is_empty()
         {
@@ -25,6 +28,9 @@ impl Config {
                 )));
             }
             config.output_dir = Some(path);
+        } else {
+            // Use default csv directory when environment variable is not set
+            config.output_dir = Some(default_output_dir);
         }
         Ok(config)
     }
@@ -53,7 +59,8 @@ mod tests {
         }
 
         let config = Config::from_env().unwrap();
-        assert!(config.output_dir.is_none());
+        // Should now default to "csv" directory
+        assert_eq!(config.output_dir, Some(PathBuf::from("csv")));
 
         // Restore original values
         if let Some(value) = orig_output_dir {
@@ -96,7 +103,8 @@ mod tests {
         }
 
         let config = Config::from_env().unwrap();
-        assert!(config.output_dir.is_none());
+        // Should default to "csv" directory when empty string
+        assert_eq!(config.output_dir, Some(PathBuf::from("csv")));
 
         // Cleanup
         unsafe {
@@ -116,7 +124,8 @@ mod tests {
         }
 
         let config = Config::from_env().unwrap();
-        assert!(config.output_dir.is_none());
+        // Should default to "csv" directory when whitespace only
+        assert_eq!(config.output_dir, Some(PathBuf::from("csv")));
 
         // Cleanup
         unsafe {
@@ -187,6 +196,30 @@ mod tests {
         unsafe {
             env::remove_var("KEY_LOGGER_OUTPUT_DIR");
             if let Some(value) = orig_output_dir {
+                env::set_var("KEY_LOGGER_OUTPUT_DIR", value);
+            }
+        }
+    }
+
+    #[test]
+    fn test_default_csv_directory() {
+        // Store original value for cleanup
+        let orig_output_dir = env::var("KEY_LOGGER_OUTPUT_DIR").ok();
+
+        // Clear environment variable to test default behavior
+        unsafe {
+            env::remove_var("KEY_LOGGER_OUTPUT_DIR");
+        }
+
+        let config = Config::from_env().unwrap();
+        
+        // Should default to "csv" directory
+        assert!(config.output_dir.is_some());
+        assert_eq!(config.output_dir.unwrap(), PathBuf::from("csv"));
+
+        // Cleanup
+        if let Some(value) = orig_output_dir {
+            unsafe {
                 env::set_var("KEY_LOGGER_OUTPUT_DIR", value);
             }
         }

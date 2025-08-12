@@ -78,6 +78,14 @@ impl KeyFreq {
     pub fn unique_keys(&self) -> usize {
         self.raw_counts.len()
     }
+
+    /// Converts KeyFreq to the HashMap<String, u64> format used by the optimizer
+    pub fn to_optimizer_format(&self) -> std::collections::HashMap<String, u64> {
+        self.raw_counts
+            .iter()
+            .map(|(key_id, &count)| (key_id.to_string(), count))
+            .collect()
+    }
 }
 
 /// Reads key frequency data from a CSV file
@@ -91,6 +99,80 @@ impl KeyFreq {
 pub fn read_key_freq_csv<P: AsRef<Path>>(path: P, opt: &ParseOptions) -> Result<KeyFreq> {
     let file = std::fs::File::open(path)?;
     read_key_freq_from_reader(file, opt)
+}
+
+/// Reads and merges all CSV files from a directory
+///
+/// # Arguments
+/// * `dir_path` - Path to directory containing CSV files
+/// * `parse_options` - Options for parsing key labels
+///
+/// # Returns
+/// Merged KeyFreq from all CSV files in the directory
+///
+/// # Errors
+/// Returns error if directory cannot be read or no valid CSV files found
+pub fn read_key_freq_from_directory<P: AsRef<Path>>(dir_path: P, opt: &ParseOptions) -> Result<KeyFreq> {
+    let dir_path = dir_path.as_ref();
+    
+    if !dir_path.exists() {
+        return Err(KbOptError::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Directory does not exist: {}", dir_path.display()),
+        )));
+    }
+    
+    if !dir_path.is_dir() {
+        return Err(KbOptError::Io(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("Path is not a directory: {}", dir_path.display()),
+        )));
+    }
+
+    let mut merged_freq = KeyFreq::new();
+    let mut csv_files_processed = 0;
+
+    // Read directory entries
+    for entry in std::fs::read_dir(dir_path)? {
+        let entry = entry?;
+        let path = entry.path();
+        
+        // Skip directories and non-CSV files
+        if !path.is_file() {
+            continue;
+        }
+        
+        if let Some(extension) = path.extension() {
+            if extension.to_str() != Some("csv") {
+                continue;
+            }
+        } else {
+            continue;
+        }
+
+        // Try to read the CSV file
+        match read_key_freq_csv(&path, opt) {
+            Ok(freq) => {
+                if !freq.is_empty() {
+                    merged_freq.merge(freq);
+                    csv_files_processed += 1;
+                }
+            }
+            Err(e) => {
+                eprintln!("Warning: Failed to read CSV file {}: {}", path.display(), e);
+                // Continue processing other files instead of failing
+            }
+        }
+    }
+
+    if csv_files_processed == 0 {
+        return Err(KbOptError::Other(format!(
+            "No valid CSV files found in directory: {}", 
+            dir_path.display()
+        )));
+    }
+
+    Ok(merged_freq)
 }
 
 /// Read CSV with `Key,Count` format.
@@ -199,4 +281,61 @@ fn parse_count_value(count_str: &str, row_number: usize) -> Result<u64> {
             value: count_str.to_string(),
             source: parse_error,
         })
+}
+
+#[cfg(test)]
+mod directory_tests {
+    use super::*;
+    use crate::keys::{KeyId, ParseOptions};
+
+    #[test]
+    fn test_read_key_freq_from_directory_nonexistent() {
+        use std::path::PathBuf;
+        let opt = ParseOptions::default();
+        let nonexistent = PathBuf::from("nonexistent_directory");
+
+        let result = read_key_freq_from_directory(&nonexistent, &opt);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_key_freq_merge() {
+        use std::collections::HashMap;
+
+        let mut freq1_counts = HashMap::new();
+        freq1_counts.insert(KeyId::Tab, 10);
+        freq1_counts.insert(KeyId::Space, 20);
+        let mut freq1 = KeyFreq::from_counts(freq1_counts);
+
+        let mut freq2_counts = HashMap::new();
+        freq2_counts.insert(KeyId::Tab, 5); // Should merge with freq1
+        freq2_counts.insert(KeyId::Enter, 15);
+        let freq2 = KeyFreq::from_counts(freq2_counts);
+
+        freq1.merge(freq2);
+
+        assert_eq!(freq1.get_count(KeyId::Tab), 15); // 10 + 5
+        assert_eq!(freq1.get_count(KeyId::Space), 20);
+        assert_eq!(freq1.get_count(KeyId::Enter), 15);
+        assert_eq!(freq1.total(), 50); // 15 + 20 + 15
+        assert_eq!(freq1.unique_keys(), 3);
+    }
+
+    #[test]
+    fn test_to_optimizer_format() {
+        use std::collections::HashMap;
+
+        let mut counts = HashMap::new();
+        counts.insert(KeyId::Tab, 100);
+        counts.insert(KeyId::Space, 200);
+        counts.insert(KeyId::Digit(1), 50);
+        
+        let freq = KeyFreq::from_counts(counts);
+        let optimizer_format = freq.to_optimizer_format();
+
+        assert_eq!(optimizer_format.get("Tab"), Some(&100));
+        assert_eq!(optimizer_format.get("Space"), Some(&200));
+        assert_eq!(optimizer_format.get("1"), Some(&50));
+        assert_eq!(optimizer_format.len(), 3);
+    }
 }

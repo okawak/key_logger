@@ -20,7 +20,7 @@ fn main() -> Result<()> {
 
     match &config.output_dir {
         Some(dir) => info!("Output directory: {}", dir.display()),
-        None => info!("Output directory: (current working directory)"),
+        None => info!("Output directory: (current working directory)"), // This case should no longer occur with default csv dir
     }
 
     let statistics = stats::create_statistics();

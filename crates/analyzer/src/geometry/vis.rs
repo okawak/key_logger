@@ -1,11 +1,12 @@
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{BufWriter, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::policy::Policy;
 use super::precompute::Precompute;
 use super::types::*;
 use crate::error::KbOptError;
+use crate::optimize::{SolutionLayout, KeyFreqs};
 
 #[derive(Debug, Clone, Copy)]
 pub enum LegendPos {
@@ -22,6 +23,8 @@ pub enum RenderMode {
     Partition,
     /// 参考: 指境界の縦スラブ（オーバーレイ用途）
     ZonesVertical,
+    /// 最適化結果レイアウト表示
+    OptimizedLayout,
 }
 
 #[derive(Debug, Clone)]
@@ -38,6 +41,12 @@ pub struct DebugRenderOptions {
     pub show_fixed_letters: bool,
     pub show_qwerty_labels: bool,
     pub show_homes: bool,
+
+    // 最適化結果用オプション
+    pub show_optimized_keys: bool,     // 最適化されたキー配置を表示
+    pub show_key_labels: bool,         // キーラベルを表示
+    pub show_key_frequencies: bool,    // キー頻度を表示
+    pub show_arrow_keys: bool,         // 矢印キーを表示
 
     // 凡例
     pub show_legend: bool,
@@ -60,11 +69,35 @@ impl Default for DebugRenderOptions {
             show_fixed_letters: true,
             show_qwerty_labels: true,
             show_homes: true,
+            // 最適化結果用のデフォルト
+            show_optimized_keys: true,
+            show_key_labels: true,
+            show_key_frequencies: false,
+            show_arrow_keys: true,
             show_legend: true,
             legend_pos: LegendPos::TopRight,
             legend_outside: true,
             legend_width_px: 280.0,
             home_offset_px: (0.0, -8.0),
+        }
+    }
+}
+
+/// 最適化結果表示用のオプションを作成
+impl DebugRenderOptions {
+    pub fn for_optimized_layout() -> Self {
+        Self {
+            render_mode: RenderMode::OptimizedLayout,
+            show_partition_cells: false,
+            show_partition_borders: false,
+            show_fixed_letters: true,  // 固定キー（アルファベット）の枠を表示
+            show_qwerty_labels: true,  // QWERTYラベルを表示
+            show_homes: true,
+            show_optimized_keys: true,
+            show_key_labels: true,
+            show_key_frequencies: true,
+            show_arrow_keys: true,
+            ..Default::default()
         }
     }
 }
@@ -405,4 +438,483 @@ fn draw_legend_corner<W: Write>(
         LegendPos::BottomRight => (canvas_w - box_w - 10.0, canvas_h - box_h - 10.0),
     };
     draw_legend_abs(w, x0, y0)
+}
+
+/// 最適化結果のキーボード配列をSVGとして描画
+pub fn render_optimized_layout<P: AsRef<Path>>(
+    geom: &Geometry,
+    solution: &SolutionLayout,
+    freqs: &KeyFreqs,
+    out_path: P,
+    opt: &DebugRenderOptions,
+) -> Result<(), KbOptError> {
+    let s = opt.scale_px_per_u;
+    let m = opt.margin_px;
+
+    let width_u = 15.0f32;
+    let y_min_u = geom
+        .cfg
+        .rows
+        .iter()
+        .map(|r| r.base_y_u - 0.5)
+        .fold(f32::INFINITY, f32::min);
+    let y_max_u = geom
+        .cfg
+        .rows
+        .iter()
+        .map(|r| r.base_y_u + 0.5)
+        .fold(f32::NEG_INFINITY, f32::max);
+    let height_u = (y_max_u - y_min_u).max(5.5);
+
+    let legend_extra_w = if opt.show_legend && opt.legend_outside {
+        opt.legend_width_px
+    } else {
+        0.0
+    };
+    let w = (width_u * s + 2.0 * m + legend_extra_w).ceil() as i32;
+    let h = (height_u * s + 2.0 * m).ceil() as i32;
+
+    let mut f = BufWriter::new(File::create(out_path)?);
+
+    writeln!(
+        f,
+        r##"<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">"##,
+        w = w,
+        h = h
+    )?;
+    writeln!(
+        f,
+        r##"<rect x="0" y="0" width="{w}" height="{h}" fill="white"/>"##,
+        w = w,
+        h = h
+    )?;
+
+    // 座標系の変換のためのヘルパー
+    // SVGでは上から下にY座標が増加するため、base_y_uが小さい行を上に表示
+    let to_px = |u_x: f32, u_y: f32| -> (f32, f32) {
+        let px_x = m + u_x * s;
+        let px_y = m + (u_y - y_min_u) * s;
+        (px_x, px_y)
+    };
+
+    // 固定文字（アルファベット）の枠を描画
+    if opt.show_fixed_letters {
+        render_fixed_letters(&mut f, geom, opt, &to_px)?;
+    }
+
+    // QWERTYラベルを描画
+    if opt.show_qwerty_labels {
+        render_qwerty_labels(&mut f, geom, opt, &to_px)?;
+    }
+
+    // 最適化されたキーを描画
+    if opt.show_optimized_keys {
+        render_optimized_keys(&mut f, geom, solution, freqs, opt, &to_px)?;
+    }
+
+    // 矢印キーを描画
+    if opt.show_arrow_keys {
+        render_arrow_keys(&mut f, geom, solution, freqs, opt, &to_px)?;
+    }
+
+    // ホームポジションを描画
+    if opt.show_homes {
+        render_home_positions(&mut f, geom, opt, &to_px)?;
+    }
+
+    // 凡例を描画
+    if opt.show_legend {
+        render_layout_legend(&mut f, solution, freqs, opt, w as f32, h as f32)?;
+    }
+
+    writeln!(f, "</svg>")?;
+    f.flush()?;
+
+    Ok(())
+}
+
+/// 最適化されたキーの描画
+fn render_optimized_keys<W: Write>(
+    w: &mut W,
+    geom: &Geometry,
+    solution: &SolutionLayout,
+    freqs: &KeyFreqs,
+    opt: &DebugRenderOptions,
+    to_px: &dyn Fn(f32, f32) -> (f32, f32),
+) -> Result<(), KbOptError> {
+    for (key_name, &(row, start_col, width_u)) in &solution.key_place {
+        // キーの位置とサイズを計算（固定キーと同じ座標系を使用）
+        let row_config = &geom.cfg.rows[row];
+        let x_start_u = row_config.offset_u + (start_col as f32) * CELL_U;
+        let y_u = row_config.base_y_u - 0.5; // 固定キーと同じY座標計算
+        let width_px = width_u * opt.scale_px_per_u;
+        let height_px = 1.0 * opt.scale_px_per_u; // 1u height
+
+        let (px_x, px_y) = to_px(x_start_u, y_u + 0.5);
+
+        // キーの背景色（頻度に基づく色分けまたは指の色）
+        let key_color = get_key_color(key_name, freqs);
+        
+        // キーの矩形を描画
+        writeln!(
+            w,
+            r##"<rect x="{:.2}" y="{:.2}" width="{:.2}" height="{:.2}" fill="{}" stroke="#333" stroke-width="1"/>"##,
+            px_x, px_y - height_px * 0.5, width_px, height_px, key_color
+        )?;
+
+        // キーラベルを描画
+        if opt.show_key_labels {
+            let label_x = px_x + width_px * 0.5;
+            let label_y = px_y;
+            let font_size = (12.0 * opt.scale_px_per_u / 60.0).max(8.0).min(16.0);
+            let encoded_key_name = html_encode(key_name);
+            
+            writeln!(
+                w,
+                r##"<text x="{:.2}" y="{:.2}" font-family="Arial, sans-serif" font-size="{:.1}px" text-anchor="middle" dominant-baseline="middle" fill="#000">{}</text>"##,
+                label_x, label_y, font_size, encoded_key_name
+            )?;
+
+            // 頻度を表示
+            if opt.show_key_frequencies {
+                if let Some(&freq) = freqs.get(key_name) {
+                    let freq_y = label_y + font_size * 0.8;
+                    writeln!(
+                        w,
+                        r##"<text x="{:.2}" y="{:.2}" font-family="Arial, sans-serif" font-size="{:.1}px" text-anchor="middle" dominant-baseline="middle" fill="#666">{}</text>"##,
+                        label_x, freq_y, font_size * 0.7, freq
+                    )?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// 矢印キーの描画
+fn render_arrow_keys<W: Write>(
+    w: &mut W,
+    geom: &Geometry,
+    solution: &SolutionLayout,
+    freqs: &KeyFreqs,
+    opt: &DebugRenderOptions,
+    to_px: &dyn Fn(f32, f32) -> (f32, f32),
+) -> Result<(), KbOptError> {
+    for (arrow_name, block_id) in &solution.arrow_place {
+        // ブロック位置を計算（固定キーと同じ座標系を使用）
+        let row_config = &geom.cfg.rows[block_id.row];
+        let block_x_u = row_config.offset_u + (block_id.bcol * 4) as f32 * CELL_U; // 1u = 4 cells
+        let block_y_u = row_config.base_y_u - 0.5; // 固定キーと同じY座標計算
+        let block_size_px = opt.scale_px_per_u; // 1u square
+
+        let (px_x, px_y) = to_px(block_x_u, block_y_u + 0.5);
+
+        // 矢印キーの背景色
+        let arrow_color = "#e0e0e0";
+        
+        // 矢印キーの矩形を描画
+        writeln!(
+            w,
+            r##"<rect x="{:.2}" y="{:.2}" width="{:.2}" height="{:.2}" fill="{}" stroke="#333" stroke-width="2"/>"##,
+            px_x, px_y - block_size_px * 0.5, block_size_px, block_size_px, arrow_color
+        )?;
+
+        // 矢印シンボルを描画
+        if opt.show_key_labels {
+            let symbol = match arrow_name.as_str() {
+                "ArrowUp" => "↑",
+                "ArrowDown" => "↓",
+                "ArrowLeft" => "←",
+                "ArrowRight" => "→",
+                _ => "?",
+            };
+            
+            let label_x = px_x + block_size_px * 0.5;
+            let label_y = px_y;
+            let font_size = (16.0 * opt.scale_px_per_u / 60.0).max(10.0).min(20.0);
+            
+            writeln!(
+                w,
+                r##"<text x="{:.2}" y="{:.2}" font-family="Arial, sans-serif" font-size="{:.1}px" text-anchor="middle" dominant-baseline="middle" fill="#000">{}</text>"##,
+                label_x, label_y, font_size, symbol
+            )?;
+
+            // 頻度を表示
+            if opt.show_key_frequencies {
+                if let Some(&freq) = freqs.get(arrow_name) {
+                    let freq_y = label_y + font_size * 0.8;
+                    writeln!(
+                        w,
+                        r##"<text x="{:.2}" y="{:.2}" font-family="Arial, sans-serif" font-size="{:.1}px" text-anchor="middle" dominant-baseline="middle" fill="#666">{}</text>"##,
+                        label_x, freq_y, font_size * 0.6, freq
+                    )?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// ホームポジションの描画
+fn render_home_positions<W: Write>(
+    w: &mut W,
+    geom: &Geometry,
+    opt: &DebugRenderOptions,
+    to_px: &dyn Fn(f32, f32) -> (f32, f32),
+) -> Result<(), KbOptError> {
+    for (&finger, &(home_x, home_y)) in &geom.homes {
+        let (px_x, px_y) = to_px(home_x, home_y);
+        let (offset_x, offset_y) = opt.home_offset_px;
+        let adjusted_x = px_x + offset_x;
+        let adjusted_y = px_y + offset_y;
+
+        let color = color_of(finger);
+        let radius = 4.0;
+
+        writeln!(
+            w,
+            r##"<circle cx="{:.2}" cy="{:.2}" r="{:.1}" fill="{}" stroke="#000" stroke-width="1"/>"##,
+            adjusted_x, adjusted_y, radius, color
+        )?;
+    }
+    Ok(())
+}
+
+/// キーの色を決定（頻度または固定色）
+fn get_key_color(key_name: &str, freqs: &KeyFreqs) -> &'static str {
+    // 矢印キーの場合
+    if key_name.starts_with("Arrow") {
+        return "#e0e0e0";
+    }
+    
+    // 頻度に基づく色分け（簡単な例）
+    if let Some(&freq) = freqs.get(key_name) {
+        if freq >= 1000 {
+            "#ff6b6b" // 高頻度: 赤
+        } else if freq >= 500 {
+            "#feca57" // 中高頻度: オレンジ
+        } else if freq >= 100 {
+            "#48dbfb" // 中頻度: 青
+        } else {
+            "#ddd" // 低頻度: グレー
+        }
+    } else {
+        "#f0f0f0" // デフォルト: ライトグレー
+    }
+}
+
+/// レイアウト用の凡例を描画
+fn render_layout_legend<W: Write>(
+    w: &mut W,
+    solution: &SolutionLayout,
+    _freqs: &KeyFreqs,
+    opt: &DebugRenderOptions,
+    canvas_w: f32,
+    _canvas_h: f32,
+) -> Result<(), KbOptError> {
+    if !opt.legend_outside {
+        return Ok(()); // 内部凡例は実装せず
+    }
+
+    let legend_x = canvas_w - opt.legend_width_px + 10.0;
+    let legend_y = 20.0;
+    let line_height = 20.0;
+    let mut y_offset = 0.0;
+
+    // 凡例のタイトル
+    writeln!(
+        w,
+        r##"<text x="{:.1}" y="{:.1}" font-family="Arial, sans-serif" font-size="14px" font-weight="bold" fill="#000">Optimized Layout</text>"##,
+        legend_x, legend_y + y_offset
+    )?;
+    y_offset += line_height * 1.5;
+
+    // 統計情報
+    writeln!(
+        w,
+        r##"<text x="{:.1}" y="{:.1}" font-family="Arial, sans-serif" font-size="12px" fill="#000">Objective: {:.1}ms</text>"##,
+        legend_x, legend_y + y_offset, solution.objective_ms
+    )?;
+    y_offset += line_height;
+
+    let total_keys = solution.key_place.len() + solution.arrow_place.len();
+    writeln!(
+        w,
+        r##"<text x="{:.1}" y="{:.1}" font-family="Arial, sans-serif" font-size="12px" fill="#000">Total Keys: {}</text>"##,
+        legend_x, legend_y + y_offset, total_keys
+    )?;
+    y_offset += line_height * 1.5;
+
+    // 頻度による色分けの説明
+    writeln!(
+        w,
+        r##"<text x="{:.1}" y="{:.1}" font-family="Arial, sans-serif" font-size="12px" font-weight="bold" fill="#000">Frequency Colors:</text>"##,
+        legend_x, legend_y + y_offset
+    )?;
+    y_offset += line_height;
+
+    let freq_ranges = [
+        ("≥1000", "#ff6b6b"),
+        ("≥500", "#feca57"),
+        ("≥100", "#48dbfb"),
+        ("&lt;100", "#ddd"), // HTMLエンコードされた<
+    ];
+
+    for (label, color) in freq_ranges {
+        writeln!(
+            w,
+            r##"<rect x="{:.1}" y="{:.1}" width="15" height="15" fill="{}" stroke="#333"/>"##,
+            legend_x, legend_y + y_offset - 12.0, color
+        )?;
+        writeln!(
+            w,
+            r##"<text x="{:.1}" y="{:.1}" font-family="Arial, sans-serif" font-size="11px" fill="#000">{}</text>"##,
+            legend_x + 20.0, legend_y + y_offset, label
+        )?;
+        y_offset += line_height * 0.8;
+    }
+
+    Ok(())
+}
+
+/// 最適化結果をfigsディレクトリに自動保存する便利関数
+pub fn save_optimized_layout_to_figs(
+    geom: &Geometry,
+    solution: &SolutionLayout,
+    freqs: &KeyFreqs,
+    geometry_name: &str,
+) -> Result<PathBuf, KbOptError> {
+    // figsディレクトリを作成
+    let figs_dir = PathBuf::from("figs");
+    fs::create_dir_all(&figs_dir).map_err(|e| KbOptError::Io(e))?;
+
+    // ファイル名を生成（ジオメトリ名 + タイムスタンプ）
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let filename = format!("optimized_{}_{}.svg", geometry_name.to_lowercase(), timestamp);
+    let output_path = figs_dir.join(&filename);
+
+    // 最適化結果用のレンダリングオプション
+    let render_opts = DebugRenderOptions::for_optimized_layout();
+
+    // SVG画像を生成
+    render_optimized_layout(geom, solution, freqs, &output_path, &render_opts)?;
+
+    Ok(output_path)
+}
+
+/// 最適化結果を指定パスに保存する関数（より汎用的）
+pub fn save_optimized_layout<P: AsRef<Path>>(
+    geom: &Geometry,
+    solution: &SolutionLayout,
+    freqs: &KeyFreqs,
+    output_path: P,
+    options: Option<&DebugRenderOptions>,
+) -> Result<(), KbOptError> {
+    // 出力ディレクトリを作成
+    if let Some(parent_dir) = output_path.as_ref().parent() {
+        fs::create_dir_all(parent_dir).map_err(|e| KbOptError::Io(e))?;
+    }
+
+    let default_opts = DebugRenderOptions::for_optimized_layout();
+    let render_opts = options.unwrap_or(&default_opts);
+    render_optimized_layout(geom, solution, freqs, output_path, render_opts)
+}
+
+/// 固定文字（アルファベット）の枠を描画
+fn render_fixed_letters<W: Write>(
+    w: &mut W,
+    geom: &Geometry,
+    opt: &DebugRenderOptions,
+    to_px: &dyn Fn(f32, f32) -> (f32, f32),
+) -> Result<(), KbOptError> {
+    for row_idx in 0..geom.cfg.rows.len() {
+        let mut c = 0usize;
+        while c < geom.cells_per_row {
+            if !geom.cells[row_idx][c].fixed_occupied {
+                c += 1;
+                continue;
+            }
+            let start = c;
+            while c < geom.cells_per_row && geom.cells[row_idx][c].fixed_occupied {
+                c += 1;
+            }
+            let mut cc = start;
+            while cc < c {
+                let (x0_u, y0_u) = geom.get_fixed_key_position(row_idx, cc);
+                let (px_x, px_y) = to_px(x0_u, y0_u + 0.5);
+                let size_px = opt.scale_px_per_u;
+
+                writeln!(
+                    w,
+                    r##"<rect x="{:.2}" y="{:.2}" width="{:.2}" height="{:.2}" fill="none" stroke="#222" stroke-width="1.2"/>"##,
+                    px_x,
+                    px_y - size_px * 0.5,
+                    size_px,
+                    size_px
+                )?;
+                cc += cells_from_u(ONE_U);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// QWERTYラベルを描画
+fn render_qwerty_labels<W: Write>(
+    w: &mut W,
+    geom: &Geometry,
+    opt: &DebugRenderOptions,
+    to_px: &dyn Fn(f32, f32) -> (f32, f32),
+) -> Result<(), KbOptError> {
+    let font_size = (12.0 * opt.scale_px_per_u / 60.0).max(8.0).min(16.0);
+    
+    let mut draw_label = |text: &str, x_u: f32, y_u: f32| -> std::io::Result<()> {
+        let (px_x, px_y) = to_px(x_u, y_u);
+        let encoded_text = html_encode(text);
+        writeln!(
+            w,
+            r##"<text x="{:.2}" y="{:.2}" font-family="Arial, sans-serif" font-size="{:.1}px" text-anchor="middle" dominant-baseline="middle" fill="#333">{}</text>"##,
+            px_x, px_y, font_size, encoded_text
+        )
+    };
+
+    // Row 1: QWERTYUIOP
+    let row1 = 1usize;
+    for (i, ch) in "QWERTYUIOP".chars().enumerate() {
+        let (x, y) = geom.get_qwerty_label_position(row1, i);
+        let _ = draw_label(&ch.to_string(), x, y);
+    }
+
+    // Row 2: ASDFGHJKL
+    let row2 = 2usize;
+    for (i, ch) in "ASDFGHJKL".chars().enumerate() {
+        let (x, y) = geom.get_qwerty_label_position(row2, i);
+        let _ = draw_label(&ch.to_string(), x, y);
+    }
+
+    // Row 3: ZXCVBNM
+    let row3 = 3usize;
+    for (i, ch) in "ZXCVBNM".chars().enumerate() {
+        let (x, y) = geom.get_qwerty_label_position(row3, i);
+        let _ = draw_label(&ch.to_string(), x, y);
+    }
+
+    Ok(())
+}
+
+/// HTMLエンティティをエンコード（SVG内でのテキスト表示用）
+fn html_encode(text: &str) -> String {
+    text.chars()
+        .map(|c| match c {
+            '<' => "&lt;".to_string(),
+            '>' => "&gt;".to_string(),
+            '&' => "&amp;".to_string(),
+            '"' => "&quot;".to_string(),
+            '\'' => "&apos;".to_string(),
+            _ => c.to_string(),
+        })
+        .collect()
 }

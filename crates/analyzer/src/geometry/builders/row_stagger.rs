@@ -47,9 +47,9 @@ impl GeometryBuilder for RowStaggerBuilder {
 
     fn get_letter_block_positions() -> Vec<(usize, f32, usize)> {
         vec![
-            (1, 1.50, 10), // Top row QWERTY: 10 keys, start=1.50u
-            (2, 1.75, 9),  // Middle row ASDF: 9 keys, start=1.75u
-            (3, 2.25, 7),  // Bottom row ZXCV: 7 keys, start=2.25u
+            (1, 1.50, 10), // Top row QWERTY: 10 keys, start=1.50u (絶対位置)
+            (2, 1.75, 9),  // Middle row ASDF: 9 keys, start=1.75u (絶対位置)
+            (3, 2.25, 7),  // Bottom row ZXCV: 7 keys, start=2.25u (絶対位置)
         ]
     }
 
@@ -83,10 +83,15 @@ impl GeometryBuilder for RowStaggerBuilder {
         row_idx: usize,
         char_idx: usize,
     ) -> (f32, f32) {
-        let r = &geometry_cfg.rows[row_idx];
-        let x = r.offset_u + (char_idx as f32 + 0.5) * ONE_U;
-        let y = r.base_y_u;
-        (x, y)
+        // アルファベット開始位置（絶対座標）
+        let alphabet_start_positions = [0.0, 1.50, 1.75, 2.25, 0.0]; // [row0, row1, row2, row3, row4]
+        let alphabet_start = alphabet_start_positions[row_idx];
+        
+        // char_idx番目のキーの絶対位置を計算
+        let key_x = alphabet_start + char_idx as f32 * ONE_U;
+        let key_center_x = key_x + ONE_U / 2.0; // キーの中心
+        let y = geometry_cfg.rows[row_idx].base_y_u;
+        (key_center_x, y)
     }
 
     fn build_home_positions(geometry_cfg: &GeometryConfig) -> HashMap<Finger, (f32, f32)> {

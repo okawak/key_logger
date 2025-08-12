@@ -115,8 +115,8 @@ impl Geometry {
         }
     }
     fn reserve_run(&mut self, row: usize, start_u: f32, count_1u: usize) {
-        let r = &self.cfg.rows[row];
-        let start_col = cells_from_u((start_u - r.offset_u).max(0.0));
+        // start_uは絶対座標なので、行のオフセットは引かない
+        let start_col = cells_from_u(start_u.max(0.0));
         for k in 0..count_1u {
             let i = start_col + k * cells_from_u(ONE_U);
             for c in i..(i + cells_from_u(ONE_U)) {
