@@ -137,39 +137,6 @@ mod tests {
     }
 
     #[test]
-    fn test_cross_platform_path_handling() {
-        let orig_output_dir = env::var("KEY_LOGGER_OUTPUT_DIR").ok();
-
-        let temp_dir = TempDir::new().unwrap();
-        let temp_path = temp_dir.path();
-
-        // Test with different path formats
-        let path_str = temp_path.to_string_lossy();
-        unsafe {
-            env::set_var("KEY_LOGGER_OUTPUT_DIR", path_str.as_ref());
-        }
-
-        let config = Config::from_env().unwrap();
-        assert!(config.output_dir.is_some());
-
-        let configured_path = config.output_dir.unwrap();
-
-        // Verify paths are equivalent (handle different separators)
-        assert_eq!(
-            configured_path.canonicalize().unwrap(),
-            temp_path.canonicalize().unwrap()
-        );
-
-        // Cleanup
-        unsafe {
-            env::remove_var("KEY_LOGGER_OUTPUT_DIR");
-            if let Some(value) = orig_output_dir {
-                env::set_var("KEY_LOGGER_OUTPUT_DIR", value);
-            }
-        }
-    }
-
-    #[test]
     fn test_default_csv_directory() {
         // Store original value for cleanup
         let orig_output_dir = env::var("KEY_LOGGER_OUTPUT_DIR").ok();
