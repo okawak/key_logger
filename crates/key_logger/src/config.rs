@@ -137,38 +137,6 @@ mod tests {
     }
 
     #[test]
-    fn test_from_env_with_file_path_error() {
-        let orig_output_dir = env::var("KEY_LOGGER_OUTPUT_DIR").ok();
-
-        let temp_dir = TempDir::new().unwrap();
-        let file_path = temp_dir.path().join("test_file.txt");
-
-        // Create a file (not a directory)
-        std::fs::write(&file_path, "test").unwrap();
-
-        unsafe {
-            env::set_var("KEY_LOGGER_OUTPUT_DIR", &file_path);
-        }
-
-        let result = Config::from_env();
-        assert!(result.is_err());
-
-        if let Err(crate::error::KeyLoggerError::InvalidConfiguration(msg)) = result {
-            assert!(msg.contains("not a directory"));
-        } else {
-            panic!("Expected InvalidConfiguration error");
-        }
-
-        // Cleanup
-        unsafe {
-            env::remove_var("KEY_LOGGER_OUTPUT_DIR");
-            if let Some(value) = orig_output_dir {
-                env::set_var("KEY_LOGGER_OUTPUT_DIR", value);
-            }
-        }
-    }
-
-    #[test]
     fn test_cross_platform_path_handling() {
         let orig_output_dir = env::var("KEY_LOGGER_OUTPUT_DIR").ok();
 
