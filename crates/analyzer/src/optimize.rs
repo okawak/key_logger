@@ -66,8 +66,6 @@ struct Cand {
     row: usize,
     start_col: usize, // 0.25u index
     w_u: f32,
-    center: (f32, f32), // [u]
-    finger: Finger,
     cost_ms: f64, // f_k を掛ける前の素コスト
     cover_cells: Vec<CellId>,
 }
@@ -236,10 +234,10 @@ pub fn solve_layout(
             let as_ = cell_cover_a.get(&cid).cloned().unwrap_or_default();
             let mut sum = Expression::from(fixed);
             for i in xs {
-                sum = sum + x_vars[i];
+                sum += x_vars[i];
             }
             for u in as_ {
-                sum = sum + a_vars[u];
+                sum += a_vars[u];
             }
             model = model.with(sum << 1);
         }
@@ -254,7 +252,7 @@ pub fn solve_layout(
         model = model.with(sum.eq(1));
     }
     // (iv) ブロック使用 a_u と m_{d,u} の整合
-    for u in 0..blocks.len() {
+    for (u, _) in a_vars.iter().enumerate().take(blocks.len()) {
         let sum_d: Expression = arrow_names
             .iter()
             .map(|d| *m_vars.get(&(*d, u)).unwrap())
@@ -285,7 +283,7 @@ pub fn solve_layout(
         model = model.with((sum_in - sum_out).eq(a_vars[u] - 4 * r_vars[u]));
     }
     for (e_idx, e) in edges.iter().enumerate() {
-        model = model.with(f_vars[e_idx] << 3.0 * a_vars[e.from]);
+        model = model.with(f_vars[e_idx] << (3.0 * a_vars[e.from]));
     }
 
     // 6) 求解
@@ -302,9 +300,9 @@ pub fn solve_layout(
     }
     let mut arrow_place = HashMap::new();
     for &d in &arrow_names {
-        for u in 0..blocks.len() {
+        for (u, block) in blocks.iter().enumerate() {
             if sol.value(*m_vars.get(&(d, u)).unwrap()) > 0.5 {
-                arrow_place.insert(d.to_string(), blocks[u].id);
+                arrow_place.insert(d.to_string(), block.id);
             }
         }
     }
@@ -355,8 +353,6 @@ fn build_candidates(geom: &Geometry, movable: &BTreeSet<String>, opt: &SolveOpti
                         row: r,
                         start_col: c0,
                         w_u,
-                        center: (cx, cy),
-                        finger,
                         cost_ms: t_ms * fk_dummy,
                         cover_cells,
                     });
@@ -390,7 +386,7 @@ fn build_blocks_1u(geom: &Geometry) -> (Vec<Block>, HashMap<BlockId, usize>) {
             let cx = x0 + 0.5 * ONE_U;
             let cy = row.base_y_u;
             let ids = [
-                CellId::new(r, start_col + 0),
+                CellId::new(r, start_col),
                 CellId::new(r, start_col + 1),
                 CellId::new(r, start_col + 2),
                 CellId::new(r, start_col + 3),
@@ -409,7 +405,7 @@ fn build_blocks_1u(geom: &Geometry) -> (Vec<Block>, HashMap<BlockId, usize>) {
 }
 
 /// 1u ブロックの隣接（8近傍：水平/垂直/斜め いずれかが接する）
-fn build_block_adjacency(blocks: &Vec<Block>, geom: &Geometry) -> Vec<(usize, usize)> {
+fn build_block_adjacency(blocks: &[Block], geom: &Geometry) -> Vec<(usize, usize)> {
     let mut edges = Vec::new();
     for (i, bi) in blocks.iter().enumerate() {
         for (j, bj) in blocks.iter().enumerate().skip(i + 1) {
