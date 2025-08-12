@@ -212,7 +212,7 @@ mod tests {
         }
 
         let config = Config::from_env().unwrap();
-        
+
         // Should default to "csv" directory
         assert!(config.output_dir.is_some());
         assert_eq!(config.output_dir.unwrap(), PathBuf::from("csv"));

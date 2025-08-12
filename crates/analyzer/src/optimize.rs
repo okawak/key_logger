@@ -45,9 +45,9 @@ fn width_candidates_for_key(name: &str) -> Vec<f32> {
     if is_arrow(name) || is_digit_or_f(name) {
         vec![1.0]
     } else {
-        // 0.25u 刻みで 0.75..2.00 あたり（お好みで）
+        // 0.25u 刻みで 1.00..2.00 あたり（最小幅1uを保証）
         let mut v = Vec::new();
-        let mut w = 0.75f32;
+        let mut w = 1.00f32;
         while w <= 2.00 + 1e-6 {
             v.push((w * 100.0).round() / 100.0);
             w += 0.25;

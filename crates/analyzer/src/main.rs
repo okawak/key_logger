@@ -2,9 +2,9 @@ use anyhow::Result;
 use std::path::PathBuf;
 
 use analyzer::geometry::{Geometry, GeometryName};
+use analyzer::keys::ParseOptions;
 use analyzer::optimize::{KeyFreqs, SolveOptions, solve_layout};
 use analyzer::{KeyFreq, read_key_freq_from_directory, save_optimized_layout_to_figs};
-use analyzer::keys::ParseOptions;
 
 fn main() -> Result<()> {
     // 幾何
@@ -22,14 +22,22 @@ fn main() -> Result<()> {
 
     let key_freq = match read_key_freq_from_directory(&csv_dir, &parse_options) {
         Ok(freq) => {
-            println!("Successfully loaded {} unique keys from {} CSV files", freq.unique_keys(), csv_dir.display());
+            println!(
+                "Successfully loaded {} unique keys from {} CSV files",
+                freq.unique_keys(),
+                csv_dir.display()
+            );
             println!("Total key presses: {}", freq.total());
             freq
         }
         Err(e) => {
-            eprintln!("Warning: Failed to read CSV files from {}: {}", csv_dir.display(), e);
+            eprintln!(
+                "Warning: Failed to read CSV files from {}: {}",
+                csv_dir.display(),
+                e
+            );
             eprintln!("Using fallback test data instead.");
-            
+
             // フォールバック: テストデータを使用
             create_fallback_data()
         }
@@ -62,7 +70,7 @@ fn main() -> Result<()> {
     }
 
     // figsディレクトリに最適化結果を画像として保存
-    match save_optimized_layout_to_figs(&geom, &sol, &freqs, "rowstagger") {
+    match save_optimized_layout_to_figs(&geom, &sol, &freqs) {
         Ok(path) => println!("Optimized layout saved to: {}", path.display()),
         Err(e) => eprintln!("Failed to save layout visualization: {}", e),
     }
@@ -72,16 +80,16 @@ fn main() -> Result<()> {
 
 /// フォールバック用のテストデータを作成
 fn create_fallback_data() -> KeyFreq {
-    use std::collections::HashMap;
     use analyzer::keys::KeyId;
-    
+    use std::collections::HashMap;
+
     let mut counts = HashMap::new();
-    
+
     // 数字キー
     for i in 0..=9 {
         counts.insert(KeyId::Digit(i), 100);
     }
-    
+
     // 修飾キー
     counts.insert(KeyId::Tab, 100);
     counts.insert(KeyId::Escape, 100);
@@ -96,12 +104,12 @@ fn create_fallback_data() -> KeyFreq {
     counts.insert(KeyId::CapsLock, 100);
     counts.insert(KeyId::Delete, 100);
     counts.insert(KeyId::Backspace, 100);
-    
+
     // 矢印キー
     counts.insert(KeyId::Arrow(analyzer::keys::ArrowKey::Up), 1000);
     counts.insert(KeyId::Arrow(analyzer::keys::ArrowKey::Down), 1000);
     counts.insert(KeyId::Arrow(analyzer::keys::ArrowKey::Left), 1000);
     counts.insert(KeyId::Arrow(analyzer::keys::ArrowKey::Right), 1000);
-    
+
     KeyFreq::from_counts(counts)
 }

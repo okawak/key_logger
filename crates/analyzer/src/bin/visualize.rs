@@ -1,4 +1,6 @@
-use analyzer::geometry::{DebugRenderOptions, Geometry, GeometryName, Policy, render_svg_debug};
+use analyzer::geometry::{
+    DebugRenderOptions, Geometry, GeometryName, Policy, Precompute, render_svg_debug,
+};
 use anyhow::Result;
 use std::fs;
 
@@ -20,9 +22,14 @@ fn main() -> Result<()> {
 
     for (geometry_name, file_prefix) in &geometries {
         let geom = Geometry::build(*geometry_name)?;
+        let precomp = Precompute {
+            key_cands: std::collections::HashMap::new(),
+            arrow_cells: Vec::new(),
+            arrow_edges: Vec::new(),
+        };
         let output_path = format!("figs/{}_geometry_debug.svg", file_prefix);
 
-        render_svg_debug(&geom, &policy, None, &output_path, &opt)?;
+        render_svg_debug(&geom, &precomp, &policy, &output_path, &opt)?;
         println!("wrote {}", output_path);
     }
 

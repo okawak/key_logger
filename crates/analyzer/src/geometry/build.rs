@@ -8,19 +8,19 @@ use super::{
     types::*,
     zoning::{ZonePolicy, apply_zone_policy},
 };
-use crate::error::KbOptError;
+use crate::error::Result;
 
 /// Geometry construction: 0.25u grid, fixed letters reservation, homes
 /// 指ゾーンの最終決定は zoning::apply_zone_policy に委譲する
 impl Geometry {
     /// デフォルトのゾーンポリシーで構築
-    pub fn build(name: GeometryName) -> Result<Self, KbOptError> {
+    pub fn build(name: GeometryName) -> Result<Self> {
         let zp = ZonePolicy::default();
         Self::build_with_zone(name, &zp)
     }
 
     /// 任意のゾーンポリシーで構築（可視化/実験用途）
-    pub fn build_with_zone(name: GeometryName, _zp: &ZonePolicy) -> Result<Self, KbOptError> {
+    pub fn build_with_zone(name: GeometryName, zp: &ZonePolicy) -> Result<Self> {
         // 5 rows × 15u (= 60 cells/row)
         let cells_per_row = 60usize;
 
@@ -97,7 +97,7 @@ impl Geometry {
         geom.init_homes();
 
         // ★ 最後にゾーンポリシーを適用（最終境界と担当指をここで確定）
-        apply_zone_policy(&mut geom, _zp);
+        apply_zone_policy(&mut geom, zp);
 
         Ok(geom)
     }

@@ -72,9 +72,19 @@ impl GeometryBuilder for RowStaggerBuilder {
         row_idx: usize,
         col_idx: usize,
     ) -> (f32, f32) {
-        let r = &geometry_cfg.rows[row_idx];
-        let x0 = r.offset_u + col_idx as f32 * CELL_U;
-        let y0 = r.base_y_u - 0.5;
+        // アルファベット文字の固定キー位置を計算（col_idxは文字インデックス0,1,2...）
+        let alphabet_start_positions = [0.0, 1.50, 1.75, 2.25, 0.0]; // [row0, row1, row2, row3, row4]
+        let alphabet_start_u = alphabet_start_positions[row_idx];
+
+        // セル単位でのアルファベット開始位置計算
+        let alphabet_start_cells = cells_from_u(alphabet_start_u);
+
+        // col_idx番目のキーのセル開始位置（1u = 4セル）
+        let key_start_cells = alphabet_start_cells + col_idx * cells_from_u(ONE_U);
+
+        // 固定キー枠の位置（左端）を計算
+        let x0 = key_start_cells as f32 * CELL_U;
+        let y0 = geometry_cfg.rows[row_idx].base_y_u - 0.5;
         (x0, y0)
     }
 
@@ -83,15 +93,27 @@ impl GeometryBuilder for RowStaggerBuilder {
         row_idx: usize,
         char_idx: usize,
     ) -> (f32, f32) {
-        // アルファベット開始位置（絶対座標）
+        // 固定キー位置と完全に一致させるため、同じ計算ロジックを使用
+        let r = &geometry_cfg.rows[row_idx];
+
+        // アルファベット開始位置（絶対座標u単位）
         let alphabet_start_positions = [0.0, 1.50, 1.75, 2.25, 0.0]; // [row0, row1, row2, row3, row4]
-        let alphabet_start = alphabet_start_positions[row_idx];
-        
-        // char_idx番目のキーの絶対位置を計算
-        let key_x = alphabet_start + char_idx as f32 * ONE_U;
-        let key_center_x = key_x + ONE_U / 2.0; // キーの中心
-        let y = geometry_cfg.rows[row_idx].base_y_u;
-        (key_center_x, y)
+        let alphabet_start_u = alphabet_start_positions[row_idx];
+
+        // セル単位でのアルファベット開始位置計算
+        let alphabet_start_cells = cells_from_u(alphabet_start_u);
+
+        // char_idx番目のキーのセル開始位置（1u = 4セル）
+        let key_start_cells = alphabet_start_cells + char_idx * cells_from_u(ONE_U);
+
+        // 固定キー枠の位置（左端）を計算 - get_fixed_key_positionと同じロジック
+        let key_left_u = key_start_cells as f32 * CELL_U;
+
+        // ラベル位置はキーの中心
+        let key_center_u = key_left_u + ONE_U / 2.0;
+        let y = r.base_y_u;
+
+        (key_center_u, y)
     }
 
     fn build_home_positions(geometry_cfg: &GeometryConfig) -> HashMap<Finger, (f32, f32)> {

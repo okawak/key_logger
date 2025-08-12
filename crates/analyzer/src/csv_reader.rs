@@ -112,16 +112,19 @@ pub fn read_key_freq_csv<P: AsRef<Path>>(path: P, opt: &ParseOptions) -> Result<
 ///
 /// # Errors
 /// Returns error if directory cannot be read or no valid CSV files found
-pub fn read_key_freq_from_directory<P: AsRef<Path>>(dir_path: P, opt: &ParseOptions) -> Result<KeyFreq> {
+pub fn read_key_freq_from_directory<P: AsRef<Path>>(
+    dir_path: P,
+    opt: &ParseOptions,
+) -> Result<KeyFreq> {
     let dir_path = dir_path.as_ref();
-    
+
     if !dir_path.exists() {
         return Err(KbOptError::Io(std::io::Error::new(
             std::io::ErrorKind::NotFound,
             format!("Directory does not exist: {}", dir_path.display()),
         )));
     }
-    
+
     if !dir_path.is_dir() {
         return Err(KbOptError::Io(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
@@ -136,12 +139,12 @@ pub fn read_key_freq_from_directory<P: AsRef<Path>>(dir_path: P, opt: &ParseOpti
     for entry in std::fs::read_dir(dir_path)? {
         let entry = entry?;
         let path = entry.path();
-        
+
         // Skip directories and non-CSV files
         if !path.is_file() {
             continue;
         }
-        
+
         if let Some(extension) = path.extension() {
             if extension.to_str() != Some("csv") {
                 continue;
@@ -167,7 +170,7 @@ pub fn read_key_freq_from_directory<P: AsRef<Path>>(dir_path: P, opt: &ParseOpti
 
     if csv_files_processed == 0 {
         return Err(KbOptError::Other(format!(
-            "No valid CSV files found in directory: {}", 
+            "No valid CSV files found in directory: {}",
             dir_path.display()
         )));
     }
@@ -329,7 +332,7 @@ mod directory_tests {
         counts.insert(KeyId::Tab, 100);
         counts.insert(KeyId::Space, 200);
         counts.insert(KeyId::Digit(1), 50);
-        
+
         let freq = KeyFreq::from_counts(counts);
         let optimizer_format = freq.to_optimizer_format();
 
