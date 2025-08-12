@@ -2,6 +2,7 @@ pub mod csv_reader;
 pub mod error;
 pub mod geometry;
 pub mod keys;
+pub mod optimize;
 
 pub use csv_reader::{KeyFreq, read_key_freq_csv};
 pub use error::KbOptError;

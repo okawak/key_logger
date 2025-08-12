@@ -19,7 +19,8 @@ ehthumbs.db
 Thumbs.db
 
 # Output files
-keylog_*.csv
+*.csv
+*.svg
 
 # Local development
 .env

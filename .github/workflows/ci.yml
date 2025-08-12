@@ -73,7 +73,7 @@ jobs:
         run: cargo build --verbose -p key_logger
 
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --verbose -p key_logger
 
   build:
     name: Build

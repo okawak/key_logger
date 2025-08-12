@@ -26,4 +26,7 @@ pub enum KbOptError {
         #[source]
         source: std::num::ParseIntError,
     },
+
+    #[error("Other error: {0}")]
+    Other(String),
 }
