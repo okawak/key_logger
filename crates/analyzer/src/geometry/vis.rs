@@ -164,7 +164,7 @@ pub fn render_svg_debug<P: AsRef<Path>>(
     /* -------------------- 1) F(j) パーティション塗り -------------------- */
     if opt.render_mode == RenderMode::Partition && opt.show_partition_cells {
         writeln!(f, r##"<g clip-path="url(#kbdClip)">"##)?;
-        
+
         // 全体のセルグリッドを描画（0.0から15.0uまで）
         let total_cells_x = (width_u / CELL_U) as usize; // 60セル
         for r in 0..geom.cfg.rows.len() {
@@ -172,19 +172,25 @@ pub fn render_svg_debug<P: AsRef<Path>>(
             for c_grid in 0..total_cells_x {
                 let x0 = c_grid as f32 * CELL_U;
                 let y0 = row.base_y_u;
-                
+
                 // セル中心のx座標を計算
                 let cell_center_x = x0 + 0.5 * CELL_U;
-                
+
                 // このグリッド位置がgeom.cellsに対応するかチェック
-                let finger = if x0 >= row.offset_u && (x0 - row.offset_u) / CELL_U < geom.cells_per_row as f32 {
+                let finger = if x0 >= row.offset_u
+                    && (x0 - row.offset_u) / CELL_U < geom.cells_per_row as f32
+                {
                     let c_in_row = ((x0 - row.offset_u) / CELL_U) as usize;
                     if c_in_row < geom.cells[r].len() {
                         geom.cells[r][c_in_row].finger
                     } else {
                         // geom.cellsの範囲外でもF(j)を使用
                         if r == geom.cfg.thumb_row {
-                            if cell_center_x < 7.5 { Finger::LThumb } else { Finger::RThumb }
+                            if cell_center_x < 7.5 {
+                                Finger::LThumb
+                            } else {
+                                Finger::RThumb
+                            }
                         } else {
                             finger_from_x(cell_center_x, &geom.cfg.finger_x_boundaries)
                         }
@@ -192,13 +198,17 @@ pub fn render_svg_debug<P: AsRef<Path>>(
                 } else {
                     // 左側のパディング部分もF(j)を使用
                     if r == geom.cfg.thumb_row {
-                        if cell_center_x < 7.5 { Finger::LThumb } else { Finger::RThumb }
+                        if cell_center_x < 7.5 {
+                            Finger::LThumb
+                        } else {
+                            Finger::RThumb
+                        }
                     } else {
                         finger_from_x(cell_center_x, &geom.cfg.finger_x_boundaries)
                     }
                 };
                 let fill = color_of(finger);
-                
+
                 writeln!(
                     f,
                     r##"<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{fill}" fill-opacity="0.9" stroke="none"/>"##,
@@ -211,7 +221,6 @@ pub fn render_svg_debug<P: AsRef<Path>>(
             }
         }
         writeln!(f, r##"</g>"##)?;
-
     }
 
     /* --------------- 2) 固定文字（1u枠） --------------- */
@@ -231,7 +240,7 @@ pub fn render_svg_debug<P: AsRef<Path>>(
                 let mut cc = start;
                 while cc < c {
                     let (x0, y0) = geom.get_fixed_key_position(row_idx, cc);
-                    
+
                     writeln!(
                         f,
                         r##"<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="none" stroke="#222" stroke-width="1.2"/>"##,

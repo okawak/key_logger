@@ -88,16 +88,16 @@ impl GeometryBuilder for RowStaggerBuilder {
         let y = r.base_y_u;
         (x, y)
     }
-    
+
     fn build_home_positions(geometry_cfg: &GeometryConfig) -> HashMap<Finger, (f32, f32)> {
         let mut homes = HashMap::new();
-        
+
         // RowStaggerの標準的なホームポジション（ASDF JKL;）
         // Middle row=2 starting from A position
         let row = 2usize;
         let r = &geometry_cfg.rows[row];
         let a_start_col = cells_from_u((1.75 - r.offset_u).max(0.0));
-        
+
         let idx = |n: usize| -> (f32, f32) {
             let start = a_start_col + n * cells_from_u(ONE_U);
             let center_col = start + cells_from_u(ONE_U) / 2;
@@ -105,12 +105,12 @@ impl GeometryBuilder for RowStaggerBuilder {
             let y = geometry_cfg.rows[row].base_y_u;
             (x, y)
         };
-        
+
         // 親指ポジション
         let thumb_y = geometry_cfg.rows[geometry_cfg.thumb_row].base_y_u;
         let lthumb = (5.5, thumb_y);
         let rthumb = (9.5, thumb_y);
-        
+
         homes.insert(Finger::LPinky, idx(0)); // A
         homes.insert(Finger::LRing, idx(1)); // S
         homes.insert(Finger::LMiddle, idx(2)); // D
@@ -122,7 +122,7 @@ impl GeometryBuilder for RowStaggerBuilder {
         homes.insert(Finger::RPinky, (lx + ONE_U, ly)); // ;
         homes.insert(Finger::LThumb, lthumb);
         homes.insert(Finger::RThumb, rthumb);
-        
+
         homes
     }
 }

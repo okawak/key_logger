@@ -1,9 +1,6 @@
 use std::collections::{BTreeSet, HashMap};
 
-use good_lp::{
-    Expression, ProblemVariables, Solution, SolverModel, Variable,
-    coin_cbc, variable,
-};
+use good_lp::{Expression, ProblemVariables, Solution, SolverModel, Variable, coin_cbc, variable};
 
 use crate::error::KbOptError;
 use crate::geometry::Geometry;
@@ -181,7 +178,7 @@ pub fn solve_layout(
             }
         }
     }
-    
+
     // 目的関数を後で評価するために保存
     let objective_expr = obj.clone();
 

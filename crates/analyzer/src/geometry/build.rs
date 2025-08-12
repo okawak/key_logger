@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 
 use super::{
+    builders::{
+        GeometryBuilder, col_stagger::ColStaggerBuilder, ortho::OrthoBuilder,
+        row_stagger::RowStaggerBuilder,
+    },
     types::*,
     zoning::{ZonePolicy, apply_zone_policy},
-    builders::{GeometryBuilder, row_stagger::RowStaggerBuilder, col_stagger::ColStaggerBuilder, ortho::OrthoBuilder},
 };
 use crate::error::KbOptError;
 
@@ -23,15 +26,18 @@ impl Geometry {
 
         // Row specifications and column offsets using builder pattern
         let (rows, col_stagger_y) = match name {
-            GeometryName::RowStagger => {
-                (RowStaggerBuilder::build_rows(cells_per_row), RowStaggerBuilder::build_col_stagger_y(cells_per_row))
-            }
-            GeometryName::Ortho => {
-                (OrthoBuilder::build_rows(cells_per_row), OrthoBuilder::build_col_stagger_y(cells_per_row))
-            }
-            GeometryName::ColStagger => {
-                (ColStaggerBuilder::build_rows(cells_per_row), ColStaggerBuilder::build_col_stagger_y(cells_per_row))
-            }
+            GeometryName::RowStagger => (
+                RowStaggerBuilder::build_rows(cells_per_row),
+                RowStaggerBuilder::build_col_stagger_y(cells_per_row),
+            ),
+            GeometryName::Ortho => (
+                OrthoBuilder::build_rows(cells_per_row),
+                OrthoBuilder::build_col_stagger_y(cells_per_row),
+            ),
+            GeometryName::ColStagger => (
+                ColStaggerBuilder::build_rows(cells_per_row),
+                ColStaggerBuilder::build_col_stagger_y(cells_per_row),
+            ),
         };
 
         // 初期の指境界（暫定）— 最終値は apply_zone_policy が上書きする
@@ -103,7 +109,7 @@ impl Geometry {
             GeometryName::Ortho => OrthoBuilder::get_letter_block_positions(),
             GeometryName::ColStagger => ColStaggerBuilder::get_letter_block_positions(),
         };
-        
+
         for (row_idx, start_u, count_1u) in positions {
             self.reserve_run(row_idx, start_u, count_1u);
         }
@@ -133,18 +139,30 @@ impl Geometry {
     /// Calculate geometry-aware position for fixed key rectangles
     pub fn get_fixed_key_position(&self, row_idx: usize, col_idx: usize) -> (f32, f32) {
         match self.name {
-            GeometryName::RowStagger => RowStaggerBuilder::get_fixed_key_position(&self.cfg, row_idx, col_idx),
-            GeometryName::Ortho => OrthoBuilder::get_fixed_key_position(&self.cfg, row_idx, col_idx),
-            GeometryName::ColStagger => ColStaggerBuilder::get_fixed_key_position(&self.cfg, row_idx, col_idx),
+            GeometryName::RowStagger => {
+                RowStaggerBuilder::get_fixed_key_position(&self.cfg, row_idx, col_idx)
+            }
+            GeometryName::Ortho => {
+                OrthoBuilder::get_fixed_key_position(&self.cfg, row_idx, col_idx)
+            }
+            GeometryName::ColStagger => {
+                ColStaggerBuilder::get_fixed_key_position(&self.cfg, row_idx, col_idx)
+            }
         }
     }
 
     /// Calculate geometry-aware position for QWERTY labels
     pub fn get_qwerty_label_position(&self, row_idx: usize, char_idx: usize) -> (f32, f32) {
         match self.name {
-            GeometryName::RowStagger => RowStaggerBuilder::get_qwerty_label_position(&self.cfg, row_idx, char_idx),
-            GeometryName::Ortho => OrthoBuilder::get_qwerty_label_position(&self.cfg, row_idx, char_idx),
-            GeometryName::ColStagger => ColStaggerBuilder::get_qwerty_label_position(&self.cfg, row_idx, char_idx),
+            GeometryName::RowStagger => {
+                RowStaggerBuilder::get_qwerty_label_position(&self.cfg, row_idx, char_idx)
+            }
+            GeometryName::Ortho => {
+                OrthoBuilder::get_qwerty_label_position(&self.cfg, row_idx, char_idx)
+            }
+            GeometryName::ColStagger => {
+                ColStaggerBuilder::get_qwerty_label_position(&self.cfg, row_idx, char_idx)
+            }
         }
     }
 }

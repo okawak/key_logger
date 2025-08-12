@@ -88,32 +88,32 @@ impl GeometryBuilder for OrthoBuilder {
         let y = r.base_y_u;
         (x, y)
     }
-    
+
     fn build_home_positions(geometry_cfg: &GeometryConfig) -> HashMap<Finger, (f32, f32)> {
         let mut homes = HashMap::new();
-        
+
         // Orthoの場合は格子配列なので、より均等で効率的なホームポジション
         // Middle row=2での格子位置基準
         let row = 2usize;
         let base_y = geometry_cfg.rows[row].base_y_u;
-        
+
         // 左手ホーム位置（格子上でより自然な位置）
         homes.insert(Finger::LPinky, (1.5 * ONE_U, base_y)); // 格子上の1.5u位置
-        homes.insert(Finger::LRing, (2.5 * ONE_U, base_y));  // 格子上の2.5u位置
+        homes.insert(Finger::LRing, (2.5 * ONE_U, base_y)); // 格子上の2.5u位置
         homes.insert(Finger::LMiddle, (3.5 * ONE_U, base_y)); // 格子上の3.5u位置
         homes.insert(Finger::LIndex, (4.5 * ONE_U, base_y)); // 格子上の4.5u位置
-        
+
         // 右手ホーム位置（格子上でより自然な位置）
         homes.insert(Finger::RIndex, (6.5 * ONE_U, base_y)); // 格子上の6.5u位置
         homes.insert(Finger::RMiddle, (7.5 * ONE_U, base_y)); // 格子上の7.5u位置
         homes.insert(Finger::RRing, (8.5 * ONE_U, base_y)); // 格子上の8.5u位置
         homes.insert(Finger::RPinky, (9.5 * ONE_U, base_y)); // 格子上の9.5u位置
-        
+
         // 親指ポジション（格子上での対称的配置）
         let thumb_y = geometry_cfg.rows[geometry_cfg.thumb_row].base_y_u;
         homes.insert(Finger::LThumb, (4.0 * ONE_U, thumb_y)); // 左親指
         homes.insert(Finger::RThumb, (7.0 * ONE_U, thumb_y)); // 右親指
-        
+
         homes
     }
 }

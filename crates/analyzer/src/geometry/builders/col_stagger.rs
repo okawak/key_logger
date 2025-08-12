@@ -42,7 +42,7 @@ impl GeometryBuilder for ColStaggerBuilder {
 
     fn build_col_stagger_y(cells_per_row: usize) -> Vec<f32> {
         let mut col_stagger_y = vec![0.0f32; cells_per_row];
-        
+
         // ColStagger: 中指が最も高く、人差し指・薬指が0.25u下、小指がさらに0.25u下
         for (c, offset) in col_stagger_y.iter_mut().enumerate().take(cells_per_row) {
             let x_pos = c as f32 * CELL_U;
@@ -51,7 +51,7 @@ impl GeometryBuilder for ColStaggerBuilder {
                 // Left pinky: -0.25u (最も下)
                 *offset = -0.25;
             } else if x_pos < 7.0 {
-                // Left ring: -0.25u  
+                // Left ring: -0.25u
                 *offset = -0.25;
             } else if x_pos < 8.75 {
                 // Left middle: 0.0u (最も高い)
@@ -73,7 +73,7 @@ impl GeometryBuilder for ColStaggerBuilder {
                 *offset = -0.5;
             }
         }
-        
+
         col_stagger_y
     }
 
@@ -96,12 +96,12 @@ impl GeometryBuilder for ColStaggerBuilder {
         let center_col = start + cells_from_u(ONE_U) / 2;
         let x = r.offset_u + (center_col as f32) * CELL_U;
         let mut y = geometry_cfg.rows[row_idx].base_y_u;
-        
+
         // ColStaggerの場合は列オフセットを追加
         if center_col < geometry_cfg.col_stagger_y.len() {
             y += geometry_cfg.col_stagger_y[center_col];
         }
-        
+
         (x, y)
     }
 
@@ -113,13 +113,13 @@ impl GeometryBuilder for ColStaggerBuilder {
         let r = &geometry_cfg.rows[row_idx];
         let x0 = r.offset_u + col_idx as f32 * CELL_U;
         let mut y0 = r.base_y_u - 0.5;
-        
+
         // ColStaggerの場合は列オフセットを追加
         let effective_col_idx = ((x0 - r.offset_u) / CELL_U) as usize;
         if effective_col_idx < geometry_cfg.col_stagger_y.len() {
             y0 += geometry_cfg.col_stagger_y[effective_col_idx];
         }
-        
+
         (x0, y0)
     }
 
@@ -131,36 +131,36 @@ impl GeometryBuilder for ColStaggerBuilder {
         let r = &geometry_cfg.rows[row_idx];
         let x = r.offset_u + (char_idx as f32 + 0.5) * ONE_U;
         let mut y = r.base_y_u;
-        
+
         // ColStaggerの場合は列オフセットを追加
         let col_idx = ((x - r.offset_u) / CELL_U) as usize;
         if col_idx < geometry_cfg.col_stagger_y.len() {
             y += geometry_cfg.col_stagger_y[col_idx];
         }
-        
+
         (x, y)
     }
-    
+
     fn build_home_positions(geometry_cfg: &GeometryConfig) -> HashMap<Finger, (f32, f32)> {
         let mut homes = HashMap::new();
-        
+
         // ColStaggerの場合は列オフセットを考慮したホームポジション
         // Middle row=2での各指の列位置
         let row = 2usize;
         let base_y = geometry_cfg.rows[row].base_y_u;
-        
+
         // 各指の列位置を定義（0.25u単位）
         let finger_positions = [
-            (Finger::LPinky, 1.5 * ONE_U),   // 左小指
-            (Finger::LRing, 2.5 * ONE_U),    // 左薬指
-            (Finger::LMiddle, 3.5 * ONE_U),  // 左中指（最も高い）
-            (Finger::LIndex, 4.5 * ONE_U),   // 左人差し指
-            (Finger::RIndex, 6.5 * ONE_U),   // 右人差し指
-            (Finger::RMiddle, 7.5 * ONE_U),  // 右中指（最も高い）
-            (Finger::RRing, 8.5 * ONE_U),    // 右薬指
-            (Finger::RPinky, 9.5 * ONE_U),   // 右小指
+            (Finger::LPinky, 1.5 * ONE_U),  // 左小指
+            (Finger::LRing, 2.5 * ONE_U),   // 左薬指
+            (Finger::LMiddle, 3.5 * ONE_U), // 左中指（最も高い）
+            (Finger::LIndex, 4.5 * ONE_U),  // 左人差し指
+            (Finger::RIndex, 6.5 * ONE_U),  // 右人差し指
+            (Finger::RMiddle, 7.5 * ONE_U), // 右中指（最も高い）
+            (Finger::RRing, 8.5 * ONE_U),   // 右薬指
+            (Finger::RPinky, 9.5 * ONE_U),  // 右小指
         ];
-        
+
         for (finger, x) in finger_positions {
             // 列オフセットを適用
             let col_idx = (x / CELL_U) as usize;
@@ -172,12 +172,12 @@ impl GeometryBuilder for ColStaggerBuilder {
             let y = base_y + y_offset;
             homes.insert(finger, (x, y));
         }
-        
+
         // 親指ポジション（列オフセット考慮）
         let thumb_y = geometry_cfg.rows[geometry_cfg.thumb_row].base_y_u;
         homes.insert(Finger::LThumb, (4.0 * ONE_U, thumb_y)); // 左親指
         homes.insert(Finger::RThumb, (7.0 * ONE_U, thumb_y)); // 右親指
-        
+
         homes
     }
 }
