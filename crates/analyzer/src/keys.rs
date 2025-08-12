@@ -141,7 +141,7 @@ pub fn parse_key_label(label: &str, opt: &ParseOptions) -> Option<KeyId> {
         return None;
     }
 
-    // one character keys
+    // One character keys
     // - ASCII alphabetic characters are not considered optimized keys
     // - ASCII digits are considered keys (0-9)
     if s.len() == 1 {
