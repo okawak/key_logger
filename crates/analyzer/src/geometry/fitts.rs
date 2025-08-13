@@ -43,3 +43,10 @@ impl Geometry {
         fitts_time(a, b, d, width_u as f64)
     }
 }
+
+/// Euclidean distance in u units
+pub fn euclid_u(a: (f32, f32), b: (f32, f32)) -> f32 {
+    let dx = a.0 - b.0;
+    let dy = a.1 - b.1;
+    (dx * dx + dy * dy).sqrt()
+}
