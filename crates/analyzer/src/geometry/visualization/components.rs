@@ -7,6 +7,15 @@ use crate::csv_reader::KeyFreq;
 use crate::error::KbOptError;
 use crate::optimize::{BlockId, SolutionLayout};
 
+// Constants for cell calculations
+const CELL_U: f32 = 0.25; // Each cell is 0.25u
+const ONE_U: f32 = 1.0; // 1u in terms of cell units
+
+// Convert u to number of cells
+fn cells_from_u(u: f32) -> usize {
+    (u / CELL_U).round() as usize
+}
+
 /// 最適化されたキーの描画
 pub fn render_optimized_keys<W: Write>(
     w: &mut W,
@@ -18,10 +27,8 @@ pub fn render_optimized_keys<W: Write>(
 ) -> Result<(), KbOptError> {
     for (key_name, &(row, start_col, width_u)) in &solution.key_place {
         // キーの位置とサイズを計算（固定キーと同じ座標系を使用）
-        let row_config = &geom.cfg.rows[row];
-        // 固定キーと同じ絶対座標系を使用（行オフセットを含めない）
         let x_start_u = (start_col as f32) * CELL_U;
-        let y_u = row_config.base_y_u - 0.5; // 固定キーと同じY座標計算
+        let y_u = row as f32 - 0.5; // 固定キーと同じY座標計算
         let width_px = width_u * opt.scale_px_per_u;
         let height_px = 1.0 * opt.scale_px_per_u; // 1u height
 
@@ -94,9 +101,8 @@ pub fn render_arrow_keys<W: Write>(
 
     for (arrow_key, symbol) in &arrow_symbols {
         if let Some(&BlockId { row, bcol }) = solution.arrow_place.get(*arrow_key) {
-            let row_config = &geom.cfg.rows[row];
-            let x_u = row_config.offset_u + (bcol * cells_from_u(ONE_U)) as f32 * CELL_U;
-            let y_u = row_config.base_y_u - 0.5;
+            let x_u = (bcol * cells_from_u(ONE_U)) as f32 * CELL_U;
+            let y_u = row as f32 - 0.5;
             let (px_x, px_y) = to_px(x_u, y_u + 0.5);
             let size_px = opt.scale_px_per_u;
 

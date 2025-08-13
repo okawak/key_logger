@@ -1,67 +1,47 @@
 use super::super::types::*;
 use super::GeometryBuilder;
+use crate::constants::cell_to_key_center;
 use std::collections::HashMap;
+
+// Constants for cell calculations
+const CELL_U: f32 = 0.25; // Each cell is 0.25u
+const ONE_U: f32 = 1.0; // 1u in terms of cell units
+
+// Convert u to number of cells
+fn cells_from_u(u: f32) -> usize {
+    (u / CELL_U).round() as usize
+}
 
 pub struct RowStaggerBuilder;
 
 impl GeometryBuilder for RowStaggerBuilder {
-    fn build_rows() -> Vec<RowSpec> {
+    fn get_letter_block_positions() -> Vec<(usize, usize, usize)> {
         vec![
-            RowSpec {
-                offset_x: 0,
-                offset_y: 0,
-            }, // Space row (親指行) - 一番下
-            RowSpec {
-                offset_x: 0,
-                offset_y: 4,
-            }, // Bottom row ZXCV
-            RowSpec {
-                offset_x: 0,
-                offset_y: 8,
-            }, // Middle row ASDF
-            RowSpec {
-                offset_x: 0,
-                offset_y: 12,
-            }, // Top row QWERTY
-            RowSpec {
-                offset_x: 0,
-                offset_y: 16,
-            }, // Number row - 一番上
+            (1, 22, 7),  // Bottom row ZXCV: 7 keys
+            (2, 20, 9),  // Middle row ASDF: 9 keys
+            (3, 19, 10), // Top row QWERTY: 10 keys
         ]
     }
 
-    fn build_col_stagger_y(_cells_per_row: usize) -> Vec<f32> {
-        // RowStaggerでは列オフセットは使用しない
-        vec![]
+    fn build_home_positions() -> HashMap<Finger, (f32, f32)> {
+        let mut homes = HashMap::new();
+
+        // second row 2 -> 8 cell
+        homes.insert(Finger::LPinky, cell_to_key_center(8, 20, 1)); // A
+        homes.insert(Finger::LRing, cell_to_key_center(8, 24, 1)); // S
+        homes.insert(Finger::LMiddle, cell_to_key_center(8, 28, 1)); // D
+        homes.insert(Finger::LIndex, cell_to_key_center(8, 32, 1)); // F
+        homes.insert(Finger::LThumb, cell_to_key_center(0, 32, 1));
+        homes.insert(Finger::RIndex, cell_to_key_center(8, 44, 1)); // J
+        homes.insert(Finger::RMiddle, cell_to_key_center(8, 48, 1)); // K
+        homes.insert(Finger::RRing, cell_to_key_center(8, 52, 1)); // L
+        homes.insert(Finger::RPinky, cell_to_key_center(8, 56, 1)); // ;
+        homes.insert(Finger::RThumb, cell_to_key_center(0, 56, 1));
+
+        homes
     }
 
-    fn get_letter_block_positions() -> Vec<(usize, f32, usize)> {
-        vec![
-            (3, 1.50, 10), // Top row QWERTY: 10 keys, start=1.50u (絶対位置)
-            (2, 1.75, 9),  // Middle row ASDF: 9 keys, start=1.75u (絶対位置)
-            (1, 2.25, 7),  // Bottom row ZXCV: 7 keys, start=2.25u (絶対位置)
-        ]
-    }
-
-    fn calculate_home_position(
-        geometry_cfg: &GeometryConfig,
-        row_idx: usize,
-        char_idx: usize,
-    ) -> (f32, f32) {
-        let r = &geometry_cfg.rows[row_idx];
-        let a_start_col = cells_from_u((1.75 - r.offset_u).max(0.0));
-        let start = a_start_col + char_idx * cells_from_u(ONE_U);
-        let center_col = start + cells_from_u(ONE_U) / 2;
-        let x = r.offset_u + (center_col as f32) * CELL_U;
-        let y = geometry_cfg.rows[row_idx].base_y_u;
-        (x, y)
-    }
-
-    fn get_fixed_key_position(
-        geometry_cfg: &GeometryConfig,
-        row_idx: usize,
-        col_idx: usize,
-    ) -> (f32, f32) {
+    fn get_fixed_key_position(row_idx: usize, col_idx: usize) -> (f32, f32) {
         // アルファベット文字の固定キー位置を計算（col_idxは文字インデックス0,1,2...）
         let alphabet_start_positions = [0.0, 2.25, 1.75, 1.50, 0.0]; // [row0(親指), row1(ZXCV), row2(ASDF), row3(QWERTY), row4(数字)]
         let alphabet_start_u = alphabet_start_positions[row_idx];
@@ -72,20 +52,13 @@ impl GeometryBuilder for RowStaggerBuilder {
         // col_idx番目のキーのセル開始位置（1u = 4セル）
         let key_start_cells = alphabet_start_cells + col_idx * cells_from_u(ONE_U);
 
-        // 固定キー枠の位置（左端）を計算
+        // 固定キー枠の位置（左端）を計算（簡略化）
         let x0 = key_start_cells as f32 * CELL_U;
-        let y0 = geometry_cfg.rows[row_idx].base_y_u - 0.5;
+        let y0 = row_idx as f32 - 0.5;
         (x0, y0)
     }
 
-    fn get_qwerty_label_position(
-        geometry_cfg: &GeometryConfig,
-        row_idx: usize,
-        char_idx: usize,
-    ) -> (f32, f32) {
-        // 固定キー位置と完全に一致させるため、同じ計算ロジックを使用
-        let r = &geometry_cfg.rows[row_idx];
-
+    fn get_qwerty_label_position(row_idx: usize, char_idx: usize) -> (f32, f32) {
         // アルファベット開始位置（絶対座標u単位）
         let alphabet_start_positions = [0.0, 2.25, 1.75, 1.50, 0.0]; // [row0(親指), row1(ZXCV), row2(ASDF), row3(QWERTY), row4(数字)]
         let alphabet_start_u = alphabet_start_positions[row_idx];
@@ -101,45 +74,8 @@ impl GeometryBuilder for RowStaggerBuilder {
 
         // ラベル位置はキーの中心
         let key_center_u = key_left_u + ONE_U / 2.0;
-        let y = r.base_y_u;
+        let y = row_idx as f32;
 
         (key_center_u, y)
-    }
-
-    fn build_home_positions(geometry_cfg: &GeometryConfig) -> HashMap<Finger, (f32, f32)> {
-        let mut homes = HashMap::new();
-
-        // RowStaggerの標準的なホームポジション（ASDF JKL;）
-        // Middle row=2 starting from A position
-        let row = 2usize;
-        let r = &geometry_cfg.rows[row];
-        let a_start_col = cells_from_u((1.75 - r.offset_u).max(0.0));
-
-        let idx = |n: usize| -> (f32, f32) {
-            let start = a_start_col + n * cells_from_u(ONE_U);
-            let center_col = start + cells_from_u(ONE_U) / 2;
-            let x = r.offset_u + (center_col as f32) * CELL_U;
-            let y = geometry_cfg.rows[row].base_y_u;
-            (x, y)
-        };
-
-        // 親指ポジション
-        let thumb_y = geometry_cfg.rows[0].base_y_u;
-        let lthumb = (5.5, thumb_y);
-        let rthumb = (9.5, thumb_y);
-
-        homes.insert(Finger::LPinky, idx(0)); // A
-        homes.insert(Finger::LRing, idx(1)); // S
-        homes.insert(Finger::LMiddle, idx(2)); // D
-        homes.insert(Finger::LIndex, idx(3)); // F
-        homes.insert(Finger::RIndex, idx(6)); // J
-        homes.insert(Finger::RMiddle, idx(7)); // K
-        homes.insert(Finger::RRing, idx(8)); // L
-        let (lx, ly) = idx(8);
-        homes.insert(Finger::RPinky, (lx + ONE_U, ly)); // ;
-        homes.insert(Finger::LThumb, lthumb);
-        homes.insert(Finger::RThumb, rthumb);
-
-        homes
     }
 }

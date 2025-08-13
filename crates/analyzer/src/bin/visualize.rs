@@ -1,5 +1,6 @@
 use analyzer::geometry::{
-    DebugRenderOptions, Geometry, GeometryName, Policy, Precompute, render_svg_debug,
+    DebugRenderOptions, Geometry, GeometryName, Precompute, render_svg_debug,
+    visualization::layout_renderer::RenderMode,
 };
 use anyhow::Result;
 use std::fs;
@@ -9,12 +10,11 @@ fn main() -> Result<()> {
     fs::create_dir_all("figs")?;
     let geometries = [
         (GeometryName::RowStagger, "row_stagger"),
-        (GeometryName::ColStagger, "col_stagger"),
         (GeometryName::Ortho, "ortho"),
     ];
 
-    let policy = Policy::default();
     let opt = DebugRenderOptions {
+        render_mode: RenderMode::Partition,
         legend_width_px: 320.0,
         home_offset_px: (0.0, -10.0),
         ..Default::default()
@@ -22,6 +22,8 @@ fn main() -> Result<()> {
 
     for (geometry_name, file_prefix) in &geometries {
         let geom = Geometry::build(*geometry_name)?;
+
+        // 可視化用の空Precompute（表示には不要）
         let precomp = Precompute {
             key_cands: std::collections::HashMap::new(),
             arrow_cells: Vec::new(),
@@ -29,7 +31,7 @@ fn main() -> Result<()> {
         };
         let output_path = format!("figs/{}_geometry_debug.svg", file_prefix);
 
-        render_svg_debug(&geom, &precomp, &policy, &output_path, &opt)?;
+        render_svg_debug(&geom, &precomp, &output_path, &opt)?;
         println!("wrote {}", output_path);
     }
 

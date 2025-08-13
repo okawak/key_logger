@@ -2,13 +2,12 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
-use super::super::policy::Policy;
 use super::super::precompute::Precompute;
 use super::super::types::*;
 use super::components::*;
 use super::legend::{LegendPos, draw_legend_corner, render_layout_legend};
 use crate::csv_reader::KeyFreq;
-use crate::error::KbOptError;
+use crate::error::{KbOptError, Result};
 use crate::optimize::SolutionLayout;
 
 /// 描画モード
@@ -16,8 +15,6 @@ use crate::optimize::SolutionLayout;
 pub enum RenderMode {
     /// F(j) による 0.25u セルのパーティション塗り（非重畳・推奨）
     Partition,
-    /// 参考: 指境界の縦スラブ（オーバーレイ用途）
-    ZonesVertical,
     /// 最適化結果レイアウト表示
     OptimizedLayout,
 }
@@ -107,10 +104,9 @@ impl DebugRenderOptions {
 pub fn render_svg_debug<P: AsRef<Path>>(
     geom: &Geometry,
     _precomp: &Precompute,
-    _policy: &Policy,
     output_path: P,
     opt: &DebugRenderOptions,
-) -> Result<(), KbOptError> {
+) -> Result<()> {
     let file = File::create(output_path)?;
     let mut f = BufWriter::new(file);
 
@@ -119,8 +115,9 @@ pub fn render_svg_debug<P: AsRef<Path>>(
     let mut y_max_u = f32::NEG_INFINITY;
     for row in &geom.cells {
         for cell in row {
-            y_min_u = y_min_u.min(cell.center_y_u);
-            y_max_u = y_max_u.max(cell.center_y_u);
+            let cell_y_u = cell.id.row as f32;
+            y_min_u = y_min_u.min(cell_y_u);
+            y_max_u = y_max_u.max(cell_y_u);
         }
     }
 
@@ -164,10 +161,7 @@ pub fn render_svg_debug<P: AsRef<Path>>(
     // 描画モード別処理
     match opt.render_mode {
         RenderMode::Partition => {
-            render_partition_mode(&mut f, geom, opt, &to_px)?;
-        }
-        RenderMode::ZonesVertical => {
-            render_zones_vertical_mode(&mut f, geom, opt, &to_px)?;
+            // render_partition_mode(&mut f, geom, opt, &to_px)?; // TODO: Implement partition mode
         }
         RenderMode::OptimizedLayout => {
             // OptimizedLayoutモードは専用の関数で処理
@@ -201,7 +195,7 @@ pub fn render_optimized_layout<P: AsRef<Path>>(
     solution: &SolutionLayout,
     freqs: &KeyFreq,
     output_path: P,
-) -> Result<(), KbOptError> {
+) -> Result<()> {
     let opt = DebugRenderOptions::for_optimized_layout();
     let file = File::create(output_path)?;
     let mut f = BufWriter::new(file);
@@ -211,8 +205,9 @@ pub fn render_optimized_layout<P: AsRef<Path>>(
     let mut y_max_u = f32::NEG_INFINITY;
     for row in &geom.cells {
         for cell in row {
-            y_min_u = y_min_u.min(cell.center_y_u);
-            y_max_u = y_max_u.max(cell.center_y_u);
+            let cell_y_u = cell.id.row as f32;
+            y_min_u = y_min_u.min(cell_y_u);
+            y_max_u = y_max_u.max(cell_y_u);
         }
     }
 
@@ -281,28 +276,5 @@ pub fn render_optimized_layout<P: AsRef<Path>>(
     writeln!(f, "</svg>")?;
     f.flush()?;
 
-    Ok(())
-}
-
-// プライベートヘルパー関数
-fn render_partition_mode<W: Write>(
-    _w: &mut W,
-    _geom: &Geometry,
-    _opt: &DebugRenderOptions,
-    _to_px: &dyn Fn(f32, f32) -> (f32, f32),
-) -> Result<(), KbOptError> {
-    // Partitionモードの実装は元のコードから移植が必要
-    // ここでは簡略化
-    Ok(())
-}
-
-fn render_zones_vertical_mode<W: Write>(
-    _w: &mut W,
-    _geom: &Geometry,
-    _opt: &DebugRenderOptions,
-    _to_px: &dyn Fn(f32, f32) -> (f32, f32),
-) -> Result<(), KbOptError> {
-    // ZonesVerticalモードの実装は元のコードから移植が必要
-    // ここでは簡略化
     Ok(())
 }

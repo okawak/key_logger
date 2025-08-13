@@ -5,8 +5,17 @@ use good_lp::{Expression, ProblemVariables, Solution, SolverModel, Variable, coi
 use crate::constants::U2MM;
 use crate::csv_reader::KeyFreq;
 use crate::error::KbOptError;
-use crate::geometry::{Geometry, types::*};
+use crate::geometry::{Geometry, precompute::Precompute, types::*};
 use crate::keys::{ArrowKey, KeyId};
+
+// Constants for cell calculations
+const CELL_U: f32 = 0.25; // Each cell is 0.25u
+const ONE_U: f32 = 1.0; // 1u in terms of cell units
+
+// Convert u to number of cells
+fn cells_from_u(u: f32) -> usize {
+    (u / CELL_U).round() as usize
+}
 
 /// ソルバ設定・Fitts 係数など
 #[derive(Debug, Clone)]
@@ -111,12 +120,23 @@ pub fn solve_layout(
         movable.retain(|k| !matches!(k, KeyId::Function(_)));
     }
 
-    // 2) 通常キーの候補を生成
-    let cands = build_candidates(geom, &movable, opt);
+    // 2) v1: 全キーが全行に配置可能、全空きセルが矢印キー候補
+    let movable_vec: Vec<KeyId> = movable.iter().cloned().collect();
+    let key_cands = generate_v1_key_candidates(geom, &movable_vec);
+    let (arrow_cells, arrow_edges) = generate_v1_arrow_region(geom);
 
-    // 3) 矢印用 1u ブロックと隣接グラフ
-    let (blocks, _block_index) = build_blocks_1u(geom);
-    let adj_edges = build_block_adjacency(&blocks, geom);
+    let precompute = Precompute {
+        key_cands,
+        arrow_cells,
+        arrow_edges,
+    };
+
+    // 3) Precomputeから通常キーの候補を変換
+    let cands = build_candidates_from_precompute(geom, &movable, &precompute, opt);
+
+    // 4) Precomputeから矢印用ブロックを変換
+    let (blocks, _block_index) = build_blocks_from_precompute(geom, &precompute);
+    let adj_edges = build_adjacency_from_precompute(&blocks, &precompute);
 
     // 4) モデルを立てる
     let mut vars = ProblemVariables::new();
@@ -225,14 +245,10 @@ pub fn solve_layout(
             cell_cover_a.entry(*cid).or_default().push(u);
         }
     }
-    for r in 0..geom.cfg.rows.len() {
-        for c in 0..geom.cells_per_row {
+    for r in 0..geom.cells.len() {
+        for c in 0..geom.cells[r].len() {
             let cid = CellId::new(r, c);
-            let fixed = if geom.cells[r][c].fixed_occupied {
-                1.0
-            } else {
-                0.0
-            };
+            let fixed = if geom.cells[r][c].occupied { 1.0 } else { 0.0 };
             let xs = cell_cover_x.get(&cid).cloned().unwrap_or_default();
             let as_ = cell_cover_a.get(&cid).cloned().unwrap_or_default();
             let mut sum = Expression::from(fixed);
@@ -319,30 +335,246 @@ pub fn solve_layout(
 
 /* ----------------- 内部：候補生成・ブロック構築 ----------------- */
 
+/// v1: 全キーが全行に配置可能な候補を生成
+fn generate_v1_key_candidates(
+    geom: &Geometry,
+    movable_keys: &[KeyId],
+) -> HashMap<KeyId, KeyCandidates> {
+    let free_blocks = compute_free_blocks(geom);
+    let mut out = HashMap::new();
+
+    for &k in movable_keys {
+        let widths = width_candidates_for_key(&k);
+        let mut starts = Vec::new();
+
+        // 全行に配置可能
+        for r in 0..geom.cells.len() {
+            if r >= free_blocks.len() {
+                continue;
+            }
+            for &(start, len) in &free_blocks[r] {
+                for i in start..(start + len) {
+                    let mut fits = Vec::new();
+                    for &w in &widths {
+                        let need = cells_from_u(w);
+                        if i + need <= start + len {
+                            fits.push(w);
+                        }
+                    }
+                    if !fits.is_empty() {
+                        starts.push((CellId::new(r, i), fits));
+                    }
+                }
+            }
+        }
+        out.insert(k, KeyCandidates { starts });
+    }
+    out
+}
+
+/// v1: 全空きセルを矢印キー配置候補とする
+fn generate_v1_arrow_region(geom: &Geometry) -> (Vec<CellId>, Vec<(CellId, CellId)>) {
+    let mut arrow_cells = Vec::new();
+
+    // 全ての空きセルを矢印キー候補に追加
+    for r in 0..geom.cells.len() {
+        for c in 0..geom.cells[r].len() {
+            if !geom.cells[r][c].occupied {
+                arrow_cells.push(CellId::new(r, c));
+            }
+        }
+    }
+
+    // 4近傍隣接エッジを生成
+    let arrow_set: std::collections::HashSet<_> = arrow_cells.iter().cloned().collect();
+    let mut arrow_edges = Vec::new();
+
+    for &cell_id in &arrow_cells {
+        let (r, c) = (cell_id.row, cell_id.col);
+        let neighbors = [
+            (r, c.wrapping_add(1)),
+            (r, c.wrapping_sub(1)),
+            (r + 1, c),
+            (r.wrapping_sub(1), c),
+        ];
+
+        for (rr, cc) in neighbors {
+            if rr < geom.cells.len() && cc < geom.cells[rr].len() {
+                let neighbor_id = CellId::new(rr, cc);
+                if arrow_set.contains(&neighbor_id) {
+                    arrow_edges.push((cell_id, neighbor_id));
+                }
+            }
+        }
+    }
+
+    (arrow_cells, arrow_edges)
+}
+
+/// 空きブロック計算（precompute.rsから移植）
+fn compute_free_blocks(geom: &Geometry) -> Vec<Vec<(usize, usize)>> {
+    let mut out = vec![vec![]; geom.cells.len()];
+    for (r, row_blocks) in out.iter_mut().enumerate().take(geom.cells.len()) {
+        let mut c = 0usize;
+        while c < geom.cells[r].len() {
+            while c < geom.cells[r].len() && geom.cells[r][c].occupied {
+                c += 1;
+            }
+            let start = c;
+            while c < geom.cells[r].len() && !geom.cells[r][c].occupied {
+                c += 1;
+            }
+            let len = c.saturating_sub(start);
+            if len > 0 {
+                row_blocks.push((start, len));
+            }
+        }
+    }
+    out
+}
+
+/// Precomputeから通常キーの候補を生成
+fn build_candidates_from_precompute(
+    geom: &Geometry,
+    movable: &BTreeSet<KeyId>,
+    precompute: &Precompute,
+    opt: &SolveOptions,
+) -> Vec<Cand> {
+    let mut out = Vec::new();
+
+    for &key in movable {
+        if let Some(key_candidates) = precompute.key_cands.get(&key) {
+            for (start_cell, widths) in &key_candidates.starts {
+                for &w_u in widths {
+                    let w_cells = cells_from_u(w_u);
+                    if w_cells == 0 {
+                        continue;
+                    }
+
+                    // 中心セルの指でホームを取る（簡略化）
+                    let c_center = start_cell.col + w_cells / 2;
+                    let cx = start_cell.col as f32 * CELL_U + w_u * 0.5;
+                    let cy = start_cell.row as f32;
+
+                    let finger = geom.cells[start_cell.row][c_center].finger;
+                    let home = geom.homes.get(&finger).cloned().unwrap_or((cx, cy));
+                    let d_mm = (euclid_u((cx, cy), home) as f64) * U2MM;
+                    let w_mm = (w_u as f64) * U2MM;
+                    let t_ms = opt.a_ms + opt.b_ms * ((d_mm / w_mm + 1.0).log2());
+
+                    let cover_cells: Vec<CellId> = (start_cell.col..start_cell.col + w_cells)
+                        .map(|cc| CellId::new(start_cell.row, cc))
+                        .collect();
+
+                    out.push(Cand {
+                        key,
+                        row: start_cell.row,
+                        start_col: start_cell.col,
+                        w_u,
+                        cost_ms: t_ms,
+                        cover_cells,
+                    });
+                }
+            }
+        }
+    }
+    out
+}
+
+/// Precomputeから矢印用ブロックを生成
+fn build_blocks_from_precompute(
+    geom: &Geometry,
+    precompute: &Precompute,
+) -> (Vec<Block>, HashMap<BlockId, usize>) {
+    let mut blocks = Vec::new();
+    let mut index = HashMap::new();
+
+    // 1uブロック単位でグループ化
+    let mut block_cells: HashMap<(usize, usize), Vec<CellId>> = HashMap::new();
+
+    for &cell_id in &precompute.arrow_cells {
+        let row = cell_id.row;
+        let bcol = cell_id.col / cells_from_u(ONE_U);
+        block_cells.entry((row, bcol)).or_default().push(cell_id);
+    }
+
+    for ((row, bcol), cells) in block_cells {
+        if cells.len() == cells_from_u(ONE_U) {
+            // 完全な1uブロックのみ追加（簡略化）
+            let start_col = bcol * cells_from_u(ONE_U);
+            let x0 = start_col as f32 * CELL_U;
+            let cx = x0 + 0.5 * ONE_U;
+            let cy = row as f32;
+
+            let cover_cells = [
+                CellId::new(row, start_col),
+                CellId::new(row, start_col + 1),
+                CellId::new(row, start_col + 2),
+                CellId::new(row, start_col + 3),
+            ];
+
+            let block_id = BlockId { row, bcol };
+            let idx = blocks.len();
+
+            blocks.push(Block {
+                id: block_id,
+                center: (cx, cy),
+                cover_cells,
+            });
+            index.insert(block_id, idx);
+        }
+    }
+
+    (blocks, index)
+}
+
+/// Precomputeから隣接エッジを生成
+fn build_adjacency_from_precompute(
+    blocks: &[Block],
+    precompute: &Precompute,
+) -> Vec<(usize, usize)> {
+    let mut block_index: HashMap<CellId, usize> = HashMap::new();
+    for (i, block) in blocks.iter().enumerate() {
+        for &cell_id in &block.cover_cells {
+            block_index.insert(cell_id, i);
+        }
+    }
+
+    let mut edges = Vec::new();
+    for &(from_cell, to_cell) in &precompute.arrow_edges {
+        if let (Some(&from_block), Some(&to_block)) =
+            (block_index.get(&from_cell), block_index.get(&to_cell))
+        {
+            if from_block != to_block {
+                edges.push((from_block, to_block));
+            }
+        }
+    }
+
+    edges
+}
+
 fn build_candidates(geom: &Geometry, movable: &BTreeSet<KeyId>, opt: &SolveOptions) -> Vec<Cand> {
     let mut out = Vec::new();
     for &key in movable {
         let widths = width_candidates_for_key(&key);
         let fk_dummy = 1.0f64; // ここでは素コスト（頻度は後で掛ける）
-        for r in 0..geom.cfg.rows.len() {
-            let row = &geom.cfg.rows[r];
+        for r in 0..geom.cells.len() {
             for &w_u in &widths {
                 let w_cells = cells_from_u(w_u);
                 if w_cells == 0 {
                     continue;
                 }
-                for c0 in 0..=geom.cells_per_row - w_cells {
+                for c0 in 0..=geom.cells[r].len() - w_cells {
                     // 固定占有に当たらないかチェック
-                    if (c0..c0 + w_cells).any(|c| geom.cells[r][c].fixed_occupied) {
+                    if (c0..c0 + w_cells).any(|c| geom.cells[r][c].occupied) {
                         continue;
                     }
-                    // 中心セルの指でホームを取る
+                    // 中心セルの指でホームを取る（簡略化）
                     let c_center = c0 + w_cells / 2;
-                    let (cx, cy) = {
-                        let x0 = row.offset_u + c0 as f32 * CELL_U;
-                        let x1 = row.offset_u + (c0 + w_cells) as f32 * CELL_U;
-                        ((x0 + x1) * 0.5, row.base_y_u)
-                    };
+                    let cx = c0 as f32 * CELL_U + w_u * 0.5;
+                    let cy = r as f32;
+
                     let finger = geom.cells[r][c_center].finger;
                     let home = geom.homes.get(&finger).cloned().unwrap_or((cx, cy));
                     let d_mm = (euclid_u((cx, cy), home) as f64) * U2MM;
@@ -374,19 +606,17 @@ fn euclid_u(a: (f32, f32), b: (f32, f32)) -> f32 {
 fn build_blocks_1u(geom: &Geometry) -> (Vec<Block>, HashMap<BlockId, usize>) {
     let mut blocks = Vec::new();
     let mut index = HashMap::new();
-    for r in 0..geom.cfg.rows.len() {
-        let row = &geom.cfg.rows[r];
-        let bcols = geom.cells_per_row / cells_from_u(ONE_U);
+    for r in 0..geom.cells.len() {
+        let bcols = geom.cells[r].len() / cells_from_u(ONE_U);
         for b in 0..bcols {
             let start_col = b * cells_from_u(ONE_U);
             // 固定占有に当たらないか
-            if (start_col..start_col + cells_from_u(ONE_U)).any(|c| geom.cells[r][c].fixed_occupied)
-            {
+            if (start_col..start_col + cells_from_u(ONE_U)).any(|c| geom.cells[r][c].occupied) {
                 continue;
             }
-            let x0 = row.offset_u + start_col as f32 * CELL_U;
+            let x0 = start_col as f32 * CELL_U;
             let cx = x0 + 0.5 * ONE_U;
-            let cy = row.base_y_u;
+            let cy = r as f32;
             let ids = [
                 CellId::new(r, start_col),
                 CellId::new(r, start_col + 1),
@@ -419,14 +649,14 @@ fn build_block_adjacency(blocks: &[Block], geom: &Geometry) -> Vec<(usize, usize
     }
     edges
 }
-fn blocks_touch(a: &Block, b: &Block, geom: &Geometry) -> bool {
-    // a,b の 1u 矩形が辺または角で接していれば true
+fn blocks_touch(a: &Block, b: &Block, _geom: &Geometry) -> bool {
+    // a,b の 1u 矩形が辺または角で接していれば true（簡略化）
     let rect = |blk: &Block| {
         // 各セルは 0.25u 正方形。ブロックは横1u, 縦1u
         let r = blk.cover_cells[0].row;
         let c0 = blk.cover_cells[0].col;
-        let x0 = geom.cfg.rows[r].offset_u + c0 as f32 * CELL_U;
-        let y0 = geom.cfg.rows[r].base_y_u - 0.5;
+        let x0 = c0 as f32 * CELL_U;
+        let y0 = r as f32 - 0.5;
         (x0, y0, x0 + ONE_U, y0 + 1.0)
     };
     let (ax0, ay0, ax1, ay1) = rect(a);
@@ -435,14 +665,14 @@ fn blocks_touch(a: &Block, b: &Block, geom: &Geometry) -> bool {
     let sep_y = (ay1 < by0) || (by1 < ay0);
     if sep_x || sep_y {
         // 角接触（端点一致）も許す：距離ゼロなら true
-        let dx = if ax1 < bx0 {
+        let dx: f32 = if ax1 < bx0 {
             bx0 - ax1
         } else if bx1 < ax0 {
             ax0 - bx1
         } else {
             0.0
         };
-        let dy = if ay1 < by0 {
+        let dy: f32 = if ay1 < by0 {
             by0 - ay1
         } else if by1 < ay0 {
             ay0 - by1

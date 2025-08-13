@@ -1,4 +1,13 @@
-use super::types::*;
+use super::{types::*, zoning::finger_from_x};
+use crate::constants::{MAX_COL_CELLS, U2CELL};
+
+// Constants for cell calculations
+const CELL_U: f32 = 0.25; // Each cell is 0.25u
+
+// Convert u to number of cells
+fn cells_from_u(u: f32) -> usize {
+    (u / CELL_U).round() as usize
+}
 
 /// Fitts' law (v1: W_eff = w)
 #[inline]
@@ -11,19 +20,16 @@ impl Geometry {
     pub fn distance_u(&self, start: CellId, width_u: f32) -> f64 {
         let row = start.row;
         let center_col = start.col + cells_from_u(width_u) / 2;
-        let x = self.cfg.rows[row].offset_u + (center_col as f32) * CELL_U;
-        let mut y = self.cfg.rows[row].base_y_u;
-        if matches!(self.name, GeometryName::ColStagger) {
-            y += self.cfg.col_stagger_y[center_col];
-        }
+        let x = (center_col as f32) * CELL_U;
+        let y = row as f32;
         let finger = if row == 0 {
-            if x < 7.5 {
+            if x < (MAX_COL_CELLS / 2) as f32 * CELL_U {
                 Finger::LThumb
             } else {
                 Finger::RThumb
             }
         } else {
-            finger_from_x(x, &self.cfg.finger_x_boundaries)
+            finger_from_x(center_col)
         };
         let (hx, hy) = self.homes[&finger];
         let dx = (x - hx) as f64;

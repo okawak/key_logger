@@ -4,7 +4,6 @@ use std::collections::HashMap;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum GeometryName {
     RowStagger,
-    ColStagger,
     Ortho,
 }
 
@@ -41,14 +40,15 @@ impl CellId {
 pub struct Cell {
     pub id: CellId,
     pub finger: Finger,
+    pub occupied: bool,
 }
 
 /// Overall geometry
 #[derive(Debug, Clone)]
 pub struct Geometry {
     pub name: GeometryName,
-    pub cells: Vec<Vec<Cell>>,          // cells[row][col]
-    pub homes: HashMap<Finger, CellId>, // Finger → home coordinates [u]
+    pub cells: Vec<Vec<Cell>>,              // cells[row][col]
+    pub homes: HashMap<Finger, (f32, f32)>, // Finger → home coordinates [R^2]
 }
 
 /// Candidate set for general keys (start cell and allowed widths)
