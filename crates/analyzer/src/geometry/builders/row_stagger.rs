@@ -5,38 +5,28 @@ use std::collections::HashMap;
 pub struct RowStaggerBuilder;
 
 impl GeometryBuilder for RowStaggerBuilder {
-    fn build_rows(cells_per_row: usize) -> Vec<RowSpec> {
+    fn build_rows() -> Vec<RowSpec> {
         vec![
             RowSpec {
-                offset_u: 0.00,
-                base_y_u: 0.0,
-                width_u: 15.0,
-                cells: cells_per_row,
-            }, // Number row
+                offset_x: 0,
+                offset_y: 0,
+            }, // Space row (親指行) - 一番下
             RowSpec {
-                offset_u: 1.50,
-                base_y_u: 1.0,
-                width_u: 15.0,
-                cells: cells_per_row,
-            }, // Top row QWERTY
-            RowSpec {
-                offset_u: 1.75,
-                base_y_u: 2.0,
-                width_u: 15.0,
-                cells: cells_per_row,
-            }, // Middle row ASDF
-            RowSpec {
-                offset_u: 2.25,
-                base_y_u: 3.0,
-                width_u: 15.0,
-                cells: cells_per_row,
+                offset_x: 0,
+                offset_y: 4,
             }, // Bottom row ZXCV
             RowSpec {
-                offset_u: 0.00,
-                base_y_u: 4.0,
-                width_u: 15.0,
-                cells: cells_per_row,
-            }, // Space row
+                offset_x: 0,
+                offset_y: 8,
+            }, // Middle row ASDF
+            RowSpec {
+                offset_x: 0,
+                offset_y: 12,
+            }, // Top row QWERTY
+            RowSpec {
+                offset_x: 0,
+                offset_y: 16,
+            }, // Number row - 一番上
         ]
     }
 
@@ -47,9 +37,9 @@ impl GeometryBuilder for RowStaggerBuilder {
 
     fn get_letter_block_positions() -> Vec<(usize, f32, usize)> {
         vec![
-            (1, 1.50, 10), // Top row QWERTY: 10 keys, start=1.50u (絶対位置)
+            (3, 1.50, 10), // Top row QWERTY: 10 keys, start=1.50u (絶対位置)
             (2, 1.75, 9),  // Middle row ASDF: 9 keys, start=1.75u (絶対位置)
-            (3, 2.25, 7),  // Bottom row ZXCV: 7 keys, start=2.25u (絶対位置)
+            (1, 2.25, 7),  // Bottom row ZXCV: 7 keys, start=2.25u (絶対位置)
         ]
     }
 
@@ -73,7 +63,7 @@ impl GeometryBuilder for RowStaggerBuilder {
         col_idx: usize,
     ) -> (f32, f32) {
         // アルファベット文字の固定キー位置を計算（col_idxは文字インデックス0,1,2...）
-        let alphabet_start_positions = [0.0, 1.50, 1.75, 2.25, 0.0]; // [row0, row1, row2, row3, row4]
+        let alphabet_start_positions = [0.0, 2.25, 1.75, 1.50, 0.0]; // [row0(親指), row1(ZXCV), row2(ASDF), row3(QWERTY), row4(数字)]
         let alphabet_start_u = alphabet_start_positions[row_idx];
 
         // セル単位でのアルファベット開始位置計算
@@ -97,7 +87,7 @@ impl GeometryBuilder for RowStaggerBuilder {
         let r = &geometry_cfg.rows[row_idx];
 
         // アルファベット開始位置（絶対座標u単位）
-        let alphabet_start_positions = [0.0, 1.50, 1.75, 2.25, 0.0]; // [row0, row1, row2, row3, row4]
+        let alphabet_start_positions = [0.0, 2.25, 1.75, 1.50, 0.0]; // [row0(親指), row1(ZXCV), row2(ASDF), row3(QWERTY), row4(数字)]
         let alphabet_start_u = alphabet_start_positions[row_idx];
 
         // セル単位でのアルファベット開始位置計算
@@ -134,7 +124,7 @@ impl GeometryBuilder for RowStaggerBuilder {
         };
 
         // 親指ポジション
-        let thumb_y = geometry_cfg.rows[geometry_cfg.thumb_row].base_y_u;
+        let thumb_y = geometry_cfg.rows[0].base_y_u;
         let lthumb = (5.5, thumb_y);
         let rthumb = (9.5, thumb_y);
 

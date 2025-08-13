@@ -2,8 +2,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use super::super::types::Geometry;
+use crate::csv_reader::KeyFreq;
 use crate::error::KbOptError;
-use crate::optimize::{KeyFreqs, SolutionLayout};
+use crate::optimize::SolutionLayout;
 
 /// HTMLエンコード（SVGテキスト用）
 pub fn html_encode(text: &str) -> String {
@@ -18,7 +19,7 @@ pub fn html_encode(text: &str) -> String {
 pub fn save_optimized_layout_to_figs(
     geom: &Geometry,
     solution: &SolutionLayout,
-    freqs: &KeyFreqs,
+    freqs: &KeyFreq,
 ) -> Result<PathBuf, KbOptError> {
     let output_dir = "figs";
     fs::create_dir_all(output_dir)?;
@@ -44,7 +45,7 @@ pub fn save_optimized_layout_to_figs(
 pub fn save_optimized_layout<P: AsRef<Path>>(
     geom: &Geometry,
     solution: &SolutionLayout,
-    freqs: &KeyFreqs,
+    freqs: &KeyFreq,
     output_path: P,
 ) -> Result<(), KbOptError> {
     super::layout_renderer::render_optimized_layout(geom, solution, freqs, output_path)

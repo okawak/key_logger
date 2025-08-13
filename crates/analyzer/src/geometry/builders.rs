@@ -7,7 +7,7 @@ pub mod row_stagger;
 /// 共通のジオメトリビルダートレイト
 pub trait GeometryBuilder {
     /// 行仕様を生成
-    fn build_rows(cells_per_row: usize) -> Vec<RowSpec>;
+    fn build_rows() -> Vec<RowSpec>;
 
     /// 列オフセット（ColStaggerのみ使用）
     fn build_col_stagger_y(cells_per_row: usize) -> Vec<f32>;

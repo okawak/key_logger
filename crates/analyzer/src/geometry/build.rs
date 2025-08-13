@@ -6,78 +6,31 @@ use super::{
         row_stagger::RowStaggerBuilder,
     },
     types::*,
-    zoning::{ZonePolicy, apply_zone_policy},
+    zoning::finger_from_x,
 };
+use crate::constants::{MAX_COL_CELLS, MAX_ROW_CELLS};
 use crate::error::Result;
 
 /// Geometry construction: 0.25u grid, fixed letters reservation, homes
 /// 指ゾーンの最終決定は zoning::apply_zone_policy に委譲する
 impl Geometry {
-    /// デフォルトのゾーンポリシーで構築
     pub fn build(name: GeometryName) -> Result<Self> {
-        let zp = ZonePolicy::default();
-        Self::build_with_zone(name, &zp)
-    }
-
-    /// 任意のゾーンポリシーで構築（可視化/実験用途）
-    pub fn build_with_zone(name: GeometryName, zp: &ZonePolicy) -> Result<Self> {
-        // 5 rows × 15u (= 60 cells/row)
-        let cells_per_row = 60usize;
-
-        // Row specifications and column offsets using builder pattern
-        let (rows, col_stagger_y) = match name {
-            GeometryName::RowStagger => (
-                RowStaggerBuilder::build_rows(cells_per_row),
-                RowStaggerBuilder::build_col_stagger_y(cells_per_row),
-            ),
-            GeometryName::Ortho => (
-                OrthoBuilder::build_rows(cells_per_row),
-                OrthoBuilder::build_col_stagger_y(cells_per_row),
-            ),
-            GeometryName::ColStagger => (
-                ColStaggerBuilder::build_rows(cells_per_row),
-                ColStaggerBuilder::build_col_stagger_y(cells_per_row),
-            ),
-        };
-
-        // 初期の指境界（暫定）— 最終値は apply_zone_policy が上書きする
-        // ※ vis.rs のバンド描画は build() 戻り値を使う時点では apply 後の値になる
-        let finger_x_boundaries = [3.5, 5.5, 7.0, 8.75, 10.5, 12.0, 13.5, 15.0, 15.0];
-
-        let cfg = GeometryConfig {
-            cell_pitch_u: CELL_U,
-            rows: rows.clone(),
-            col_stagger_y,
-            finger_x_boundaries,
-            thumb_row: 4,
-        };
-
-        // Cell generation（finger は暫定。最後に apply_zone_policy が確定させる）
-        let mut cells: Vec<Vec<Cell>> = Vec::with_capacity(rows.len());
-        for (r_idx, r) in rows.iter().enumerate() {
-            let mut row_cells = Vec::with_capacity(r.cells);
-            for c in 0..r.cells {
-                let x = r.offset_u + (c as f32 + 0.5) * CELL_U;
-                let mut y = r.base_y_u;
-                if matches!(name, GeometryName::ColStagger) {
-                    y += cfg.col_stagger_y[c];
-                }
-                // 暫定：親指行だけ左右で親指、それ以外は境界で推定
-                let finger = if r_idx == cfg.thumb_row {
-                    if x < 7.5 {
+        let mut cells: Vec<Vec<Cell>> = Vec::with_capacity(MAX_ROW_CELLS);
+        for row in 0..MAX_ROW_CELLS {
+            let mut row_cells = Vec::with_capacity(MAX_COL_CELLS);
+            for col in 0..MAX_COL_CELLS {
+                let finger = if row == 0 {
+                    if col as f32 <= MAX_COL_CELLS as f32 / 2.0 {
                         Finger::LThumb
                     } else {
                         Finger::RThumb
                     }
                 } else {
-                    finger_from_x(x, &cfg.finger_x_boundaries)
+                    finger_from_x(col)
                 };
                 row_cells.push(Cell {
-                    id: CellId::new(r_idx, c),
-                    center_x_u: x,
-                    center_y_u: y,
+                    id: CellId::new(row, col),
                     finger,
-                    fixed_occupied: false,
                 });
             }
             cells.push(row_cells);
@@ -85,19 +38,14 @@ impl Geometry {
 
         let mut geom = Geometry {
             name,
-            cfg,
             cells,
             homes: HashMap::new(),
-            cells_per_row,
         };
 
         // 固定文字（A..Z）を確保
         geom.reserve_letter_blocks();
         // ホーム位置（ASDF / JKL;）
         geom.init_homes();
-
-        // ★ 最後にゾーンポリシーを適用（最終境界と担当指をここで確定）
-        apply_zone_policy(&mut geom, zp);
 
         Ok(geom)
     }

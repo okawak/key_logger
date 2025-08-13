@@ -5,38 +5,28 @@ use std::collections::HashMap;
 pub struct OrthoBuilder;
 
 impl GeometryBuilder for OrthoBuilder {
-    fn build_rows(cells_per_row: usize) -> Vec<RowSpec> {
+    fn build_rows() -> Vec<RowSpec> {
         vec![
             RowSpec {
-                offset_u: 0.00,
-                base_y_u: 0.0,
-                width_u: 15.0,
-                cells: cells_per_row,
-            },
+                offset_x: 0,
+                offset_y: 0,
+            }, // Space row (親指行) - 一番下
             RowSpec {
-                offset_u: 0.00,
-                base_y_u: 1.0,
-                width_u: 15.0,
-                cells: cells_per_row,
-            },
+                offset_x: 0,
+                offset_y: 4,
+            }, // Bottom row ZXCV
             RowSpec {
-                offset_u: 0.00,
-                base_y_u: 2.0,
-                width_u: 15.0,
-                cells: cells_per_row,
-            },
+                offset_x: 0,
+                offset_y: 8,
+            }, // Middle row ASDF
             RowSpec {
-                offset_u: 0.00,
-                base_y_u: 3.0,
-                width_u: 15.0,
-                cells: cells_per_row,
-            },
+                offset_x: 0,
+                offset_y: 12,
+            }, // Top row QWERTY
             RowSpec {
-                offset_u: 0.00,
-                base_y_u: 4.0,
-                width_u: 15.0,
-                cells: cells_per_row,
-            },
+                offset_x: 0,
+                offset_y: 16,
+            }, // Number row - 一番上
         ]
     }
 
@@ -47,9 +37,9 @@ impl GeometryBuilder for OrthoBuilder {
 
     fn get_letter_block_positions() -> Vec<(usize, f32, usize)> {
         vec![
-            (1, 1.50, 10), // Top row QWERTY: 10 keys, start=1.50u (relative to no offset)
+            (3, 1.50, 10), // Top row QWERTY: 10 keys, start=1.50u (relative to no offset)
             (2, 1.75, 9),  // Middle row ASDF: 9 keys, start=1.75u (relative to no offset)
-            (3, 2.25, 7),  // Bottom row ZXCV: 7 keys, start=2.25u (relative to no offset)
+            (1, 2.25, 7),  // Bottom row ZXCV: 7 keys, start=2.25u (relative to no offset)
         ]
     }
 
@@ -110,7 +100,7 @@ impl GeometryBuilder for OrthoBuilder {
         homes.insert(Finger::RPinky, (9.5 * ONE_U, base_y)); // 格子上の9.5u位置
 
         // 親指ポジション（格子上での対称的配置）
-        let thumb_y = geometry_cfg.rows[geometry_cfg.thumb_row].base_y_u;
+        let thumb_y = geometry_cfg.rows[0].base_y_u;
         homes.insert(Finger::LThumb, (4.0 * ONE_U, thumb_y)); // 左親指
         homes.insert(Finger::RThumb, (7.0 * ONE_U, thumb_y)); // 右親指
 

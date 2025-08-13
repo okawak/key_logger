@@ -3,15 +3,16 @@ use std::io::Write;
 use super::super::types::*;
 use super::colors::{color_of, get_key_color};
 use super::svg_utils::html_encode;
+use crate::csv_reader::KeyFreq;
 use crate::error::KbOptError;
-use crate::optimize::{BlockId, KeyFreqs, SolutionLayout};
+use crate::optimize::{BlockId, SolutionLayout};
 
 /// 最適化されたキーの描画
 pub fn render_optimized_keys<W: Write>(
     w: &mut W,
     geom: &Geometry,
     solution: &SolutionLayout,
-    freqs: &KeyFreqs,
+    freqs: &KeyFreq,
     opt: &super::layout_renderer::DebugRenderOptions,
     to_px: &dyn Fn(f32, f32) -> (f32, f32),
 ) -> Result<(), KbOptError> {
@@ -58,7 +59,12 @@ pub fn render_optimized_keys<W: Write>(
         if opt.show_key_frequencies {
             let freq_x = px_x + width_px * 0.5;
             let freq_y = px_y + 9.6;
-            let freq = *freqs.get(key_name).unwrap_or(&0);
+            let freq = freqs
+                .counts()
+                .iter()
+                .find(|(k, _)| k.to_string() == *key_name)
+                .map(|(_, &count)| count)
+                .unwrap_or(0);
 
             writeln!(
                 w,
@@ -75,7 +81,7 @@ pub fn render_arrow_keys<W: Write>(
     w: &mut W,
     geom: &Geometry,
     solution: &SolutionLayout,
-    freqs: &KeyFreqs,
+    freqs: &KeyFreq,
     opt: &super::layout_renderer::DebugRenderOptions,
     to_px: &dyn Fn(f32, f32) -> (f32, f32),
 ) -> Result<(), KbOptError> {
@@ -114,7 +120,12 @@ pub fn render_arrow_keys<W: Write>(
 
             // 頻度を描画
             if opt.show_key_frequencies {
-                let freq = *freqs.get(*arrow_key).unwrap_or(&0);
+                let freq = freqs
+                    .counts()
+                    .iter()
+                    .find(|(k, _)| k.to_string() == *arrow_key)
+                    .map(|(_, &count)| count)
+                    .unwrap_or(0);
                 writeln!(
                     w,
                     r##"<text x="{:.2}" y="{:.2}" font-family="Arial, sans-serif" font-size="9.6px" text-anchor="middle" dominant-baseline="middle" fill="#666">{}</text>"##,
@@ -159,10 +170,11 @@ pub fn render_fixed_letters<W: Write>(
     to_px: &dyn Fn(f32, f32) -> (f32, f32),
 ) -> Result<(), KbOptError> {
     // アルファベット文字の配置定義（行インデックス, 文字数）
+    // 新しい行インデックス: 0=親指, 1=ZXCV, 2=ASDF, 3=QWERTY, 4=数字
     let letter_layouts = [
-        (1, 10), // Row 1: QWERTYUIOP (10 keys)
+        (3, 10), // Row 3: QWERTYUIOP (10 keys)
         (2, 9),  // Row 2: ASDFGHJKL (9 keys)
-        (3, 7),  // Row 3: ZXCVBNM (7 keys)
+        (1, 7),  // Row 1: ZXCVBNM (7 keys)
     ];
 
     for (row_idx, key_count) in letter_layouts {
@@ -193,11 +205,11 @@ pub fn render_qwerty_labels<W: Write>(
 ) -> Result<(), KbOptError> {
     let qwerty_layouts = [
         (
-            1,
+            3,
             ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"].as_slice(),
         ),
         (2, ["A", "S", "D", "F", "G", "H", "J", "K", "L"].as_slice()),
-        (3, ["Z", "X", "C", "V", "B", "N", "M"].as_slice()),
+        (1, ["Z", "X", "C", "V", "B", "N", "M"].as_slice()),
     ];
 
     for (row_idx, chars) in qwerty_layouts {

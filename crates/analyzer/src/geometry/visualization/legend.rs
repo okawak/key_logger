@@ -3,8 +3,9 @@ use std::io::Write;
 use super::super::types::Finger;
 use super::colors::{color_of, finger_label};
 use super::svg_utils::html_encode;
+use crate::csv_reader::KeyFreq;
 use crate::error::KbOptError;
-use crate::optimize::{KeyFreqs, SolutionLayout};
+use crate::optimize::SolutionLayout;
 
 /// 凡例位置
 #[derive(Debug, Clone, Copy)]
@@ -104,7 +105,7 @@ pub fn draw_legend_corner<W: Write>(
 pub fn render_layout_legend<W: Write>(
     w: &mut W,
     solution: &SolutionLayout,
-    _freqs: &KeyFreqs,
+    _freqs: &KeyFreq,
     legend_x: f32,
     legend_y: f32,
 ) -> Result<(), KbOptError> {

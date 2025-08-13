@@ -1,7 +1,8 @@
+use crate::{DEFAULT_FKEYS_MAX, MAX_DIGIT, MAX_NUMPAD_DIGIT};
 use std::fmt;
 
 /// Symbol keys
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum SymbolKey {
     Backtick,  // `
     Minus,     // -
@@ -17,7 +18,7 @@ pub enum SymbolKey {
 }
 
 /// Arrow keys
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum ArrowKey {
     Left,
     Down,
@@ -25,11 +26,8 @@ pub enum ArrowKey {
     Right,
 }
 
-const MAX_DIGIT: u8 = 9;
-const MAX_NUMPAD_DIGIT: u8 = 9;
-
 /// Optimized key identifier.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum KeyId {
     Digit(u8), // 0..9
     // symbols (US)
@@ -116,8 +114,6 @@ pub struct ParseOptions {
     pub include_numpad: bool,
     pub strict_unknown_keys: bool,
 }
-
-pub const DEFAULT_FKEYS_MAX: u8 = 12;
 
 impl Default for ParseOptions {
     fn default() -> Self {

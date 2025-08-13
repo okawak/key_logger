@@ -1,3 +1,4 @@
+use crate::constants::{EXPECTED_COUNT_HEADER, EXPECTED_KEY_HEADER};
 use crate::error::{KbOptError, Result};
 use crate::keys::{KeyId, ParseOptions, parse_key_label};
 
@@ -5,9 +6,6 @@ use csv::{ReaderBuilder, StringRecord, Trim};
 use std::collections::HashMap;
 use std::io::Read;
 use std::path::Path;
-
-const EXPECTED_KEY_HEADER: &str = "Key";
-const EXPECTED_COUNT_HEADER: &str = "Count";
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct KeyFreq {
@@ -284,6 +282,42 @@ fn parse_count_value(count_str: &str, row_number: usize) -> Result<u64> {
             value: count_str.to_string(),
             source: parse_error,
         })
+}
+
+/// fallback
+pub fn create_fallback_data() -> KeyFreq {
+    use crate::keys::KeyId;
+    use std::collections::HashMap;
+
+    let mut counts = HashMap::new();
+
+    // 数字キー
+    for i in 0..=9 {
+        counts.insert(KeyId::Digit(i), 100);
+    }
+
+    // 修飾キー
+    counts.insert(KeyId::Tab, 100);
+    counts.insert(KeyId::Escape, 100);
+    counts.insert(KeyId::ShiftL, 100);
+    counts.insert(KeyId::ShiftR, 100);
+    counts.insert(KeyId::CtrlL, 100);
+    counts.insert(KeyId::CtrlR, 100);
+    counts.insert(KeyId::AltL, 100);
+    counts.insert(KeyId::AltR, 100);
+    counts.insert(KeyId::MetaL, 100);
+    counts.insert(KeyId::MetaR, 100);
+    counts.insert(KeyId::CapsLock, 100);
+    counts.insert(KeyId::Delete, 100);
+    counts.insert(KeyId::Backspace, 100);
+
+    // 矢印キー
+    counts.insert(KeyId::Arrow(crate::keys::ArrowKey::Up), 1000);
+    counts.insert(KeyId::Arrow(crate::keys::ArrowKey::Down), 1000);
+    counts.insert(KeyId::Arrow(crate::keys::ArrowKey::Left), 1000);
+    counts.insert(KeyId::Arrow(crate::keys::ArrowKey::Right), 1000);
+
+    KeyFreq::from_counts(counts)
 }
 
 #[cfg(test)]

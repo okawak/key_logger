@@ -1,5 +1,5 @@
 use super::super::types::Finger;
-use crate::optimize::KeyFreqs;
+use crate::csv_reader::KeyFreq;
 
 /// 指の色を返す
 pub fn color_of(fgr: Finger) -> &'static str {
@@ -36,8 +36,15 @@ pub fn finger_label(fgr: Finger) -> &'static str {
 }
 
 /// キーの色を頻度に基づいて決定
-pub fn get_key_color(key_name: &str, freqs: &KeyFreqs) -> &'static str {
-    let freq = *freqs.get(key_name).unwrap_or(&0);
+pub fn get_key_color(key_name: &str, freqs: &KeyFreq) -> &'static str {
+    // 文字列からKeyIdへの変換が必要だが、ここでは文字列のまま処理
+    // TODO: より良い方法を検討
+    let freq = freqs
+        .counts()
+        .iter()
+        .find(|(k, _)| k.to_string() == *key_name)
+        .map(|(_, &count)| count)
+        .unwrap_or(0);
 
     if freq >= 1000 {
         "#ff6b6b" // 赤 (高頻度)

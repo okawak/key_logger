@@ -16,7 +16,7 @@ impl Geometry {
         if matches!(self.name, GeometryName::ColStagger) {
             y += self.cfg.col_stagger_y[center_col];
         }
-        let finger = if row == self.cfg.thumb_row {
+        let finger = if row == 0 {
             if x < 7.5 {
                 Finger::LThumb
             } else {

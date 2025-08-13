@@ -7,8 +7,9 @@ use super::super::precompute::Precompute;
 use super::super::types::*;
 use super::components::*;
 use super::legend::{LegendPos, draw_legend_corner, render_layout_legend};
+use crate::csv_reader::KeyFreq;
 use crate::error::KbOptError;
-use crate::optimize::{KeyFreqs, SolutionLayout};
+use crate::optimize::SolutionLayout;
 
 /// 描画モード
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -198,7 +199,7 @@ pub fn render_svg_debug<P: AsRef<Path>>(
 pub fn render_optimized_layout<P: AsRef<Path>>(
     geom: &Geometry,
     solution: &SolutionLayout,
-    freqs: &KeyFreqs,
+    freqs: &KeyFreq,
     output_path: P,
 ) -> Result<(), KbOptError> {
     let opt = DebugRenderOptions::for_optimized_layout();
