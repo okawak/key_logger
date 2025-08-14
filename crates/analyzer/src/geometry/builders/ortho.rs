@@ -10,11 +10,16 @@ const ONE_U: f32 = 1.0; // 1u in terms of cell units
 pub struct OrthoBuilder;
 
 impl GeometryBuilder for OrthoBuilder {
-    fn get_letter_block_positions() -> Vec<(usize, usize, usize)> {
+    /// row-idx [u], start-cell [cell], Vec of key names
+    fn get_letter_block_positions() -> Vec<(usize, usize, Vec<&'static str>)> {
         vec![
-            (1, 20, 7),  // Bottom row ZXCV: 7 keys
-            (2, 20, 9),  // Middle row ASDF: 9 keys
-            (3, 20, 10), // Top row QWERTY: 10 keys
+            (1, 20, vec!["Z", "X", "C", "V", "B", "N", "M"]), // Bottom row ZXCV: 7 keys
+            (2, 20, vec!["A", "S", "D", "F", "G", "H", "J", "K", "L"]), // Middle row ASDF: 9 keys
+            (
+                3,
+                20,
+                vec!["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+            ), // Top row QWERTY: 10 keys
         ]
     }
 
@@ -22,16 +27,16 @@ impl GeometryBuilder for OrthoBuilder {
         let mut homes = HashMap::new();
 
         // second row 2 -> 8 cell
-        homes.insert(Finger::LPinky, cell_to_key_center(8, 20, 1)); // A
-        homes.insert(Finger::LRing, cell_to_key_center(8, 24, 1)); // S
-        homes.insert(Finger::LMiddle, cell_to_key_center(8, 28, 1)); // D
-        homes.insert(Finger::LIndex, cell_to_key_center(8, 32, 1)); // F
-        homes.insert(Finger::LThumb, cell_to_key_center(0, 32, 1));
-        homes.insert(Finger::RIndex, cell_to_key_center(8, 44, 1)); // J
-        homes.insert(Finger::RMiddle, cell_to_key_center(8, 48, 1)); // K
-        homes.insert(Finger::RRing, cell_to_key_center(8, 52, 1)); // L
-        homes.insert(Finger::RPinky, cell_to_key_center(8, 56, 1)); // ;
-        homes.insert(Finger::RThumb, cell_to_key_center(0, 56, 1));
+        homes.insert(Finger::LPinky, cell_to_key_center(8, 20, 1.0)); // A
+        homes.insert(Finger::LRing, cell_to_key_center(8, 24, 1.0)); // S
+        homes.insert(Finger::LMiddle, cell_to_key_center(8, 28, 1.0)); // D
+        homes.insert(Finger::LIndex, cell_to_key_center(8, 32, 1.0)); // F
+        homes.insert(Finger::LThumb, cell_to_key_center(0, 32, 1.0));
+        homes.insert(Finger::RIndex, cell_to_key_center(8, 44, 1.0)); // J
+        homes.insert(Finger::RMiddle, cell_to_key_center(8, 48, 1.0)); // K
+        homes.insert(Finger::RRing, cell_to_key_center(8, 52, 1.0)); // L
+        homes.insert(Finger::RPinky, cell_to_key_center(8, 56, 1.0)); // ;
+        homes.insert(Finger::RThumb, cell_to_key_center(0, 56, 1.0));
 
         homes
     }

@@ -40,13 +40,13 @@ impl CellId {
 /// 1u ブロック（矢印用の占有単位）
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BlockId {
-    pub row: usize,
-    pub bcol: usize, // 1u ブロック列（0.25u 4セルごと）
+    pub row_u: usize,
+    pub col_u: usize, // 1u ブロック列（0.25u 4セルごと）
 }
 
 impl BlockId {
-    pub fn new(row: usize, bcol: usize) -> Self {
-        Self { row, bcol }
+    pub fn new(row_u: usize, col_u: usize) -> Self {
+        Self { row_u, col_u }
     }
 }
 
@@ -69,12 +69,11 @@ pub enum PlacementType {
 /// キー配置情報（通常キーと矢印キー統一）
 #[derive(Debug, Clone)]
 pub struct KeyPlacement {
-    pub key_name: String,      // キー名（文字列）
-    pub key_id: Option<KeyId>, // 定義されたキーID（オプション）
-    pub row: usize,
-    pub start_col: usize, // 0.25u index
-    pub width_u: f32,
     pub placement_type: PlacementType,
+    pub key_id: Option<KeyId>,     // 定義されたキーID（オプション）
+    pub x: f32,                    // x coordinate [mm]
+    pub y: f32,                    // y coordinate [mm]
+    pub width_u: f32,              // キー幅 [u]
     pub block_id: Option<BlockId>, // 矢印キー用のブロックID（オプション）
 }
 
@@ -82,9 +81,9 @@ pub struct KeyPlacement {
 #[derive(Debug, Clone)]
 pub struct Geometry {
     pub name: GeometryName,
-    pub cells: Vec<Vec<Cell>>,              // cells[row][col]
-    pub homes: HashMap<Finger, (f32, f32)>, // Finger → home coordinates [R^2]
-    pub key_placements: Vec<KeyPlacement>,  // store all key placements
+    pub cells: Vec<Vec<Cell>>,                         // cells[row][col]
+    pub homes: HashMap<Finger, (f32, f32)>,            // Finger → home coordinates [R^2]
+    pub key_placements: HashMap<String, KeyPlacement>, // store all key placements
 }
 
 /// Candidate set for general keys (start cell and allowed widths)

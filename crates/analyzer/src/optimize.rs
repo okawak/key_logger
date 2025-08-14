@@ -259,20 +259,27 @@ pub fn solve_layout(
 
     // 既存の最適化キーをクリア（固定キーは残す）
     geom.key_placements
-        .retain(|p| p.placement_type == PlacementType::Fixed);
+        .retain(|_, p| p.placement_type == PlacementType::Fixed);
 
     // 通常キーの配置を追加
     for (i, cand) in cands.iter().enumerate() {
         if sol.value(x_vars[i]) > 0.5 {
-            geom.key_placements.push(KeyPlacement {
-                key_name: cand.key.to_string(),
-                key_id: Some(cand.key),
-                row: cand.row,
-                start_col: cand.start_col,
-                width_u: cand.w_u,
-                placement_type: PlacementType::Optimized,
-                block_id: None,
-            });
+            let (x, y) = crate::constants::cell_to_key_center(
+                cand.row * crate::constants::U2CELL,
+                cand.start_col,
+                cand.w_u,
+            );
+            geom.key_placements.insert(
+                cand.key.to_string(),
+                KeyPlacement {
+                    placement_type: PlacementType::Optimized,
+                    key_id: Some(cand.key),
+                    x,
+                    y,
+                    width_u: cand.w_u,
+                    block_id: None,
+                },
+            );
         }
     }
 
@@ -280,16 +287,23 @@ pub fn solve_layout(
     for &arrow_key in &ARROW_KEYS {
         for (u, block) in blocks.iter().enumerate() {
             if sol.value(*m_vars.get(&(arrow_key, u)).unwrap()) > 0.5 {
-                let start_col = block.id.bcol * 4; // 1u = 4 cells
-                geom.key_placements.push(KeyPlacement {
-                    key_name: arrow_key.to_string(),
-                    key_id: Some(arrow_key),
-                    row: block.id.row,
+                let start_col = block.id.col_u * 4; // 1u = 4 cells
+                let (x, y) = crate::constants::cell_to_key_center(
+                    block.id.row_u * crate::constants::U2CELL,
                     start_col,
-                    width_u: 1.0,
-                    placement_type: PlacementType::Arrow,
-                    block_id: Some(block.id),
-                });
+                    1.0,
+                );
+                geom.key_placements.insert(
+                    arrow_key.to_string(),
+                    KeyPlacement {
+                        placement_type: PlacementType::Arrow,
+                        key_id: Some(arrow_key),
+                        x,
+                        y,
+                        width_u: 1.0,
+                        block_id: Some(block.id),
+                    },
+                );
             }
         }
     }

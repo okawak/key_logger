@@ -60,22 +60,19 @@ fn main() -> Result<()> {
     println!("objective(ms): {:.3}", sol.objective_ms);
 
     // キー配置情報をGeometryから出力
-    for key_placement in &geom.key_placements {
+    for (key_name, key_placement) in &geom.key_placements {
         match key_placement.placement_type {
             analyzer::geometry::types::PlacementType::Optimized => {
                 println!(
-                    "key {:<12} -> row {}, col {}, w {:.2}u",
-                    key_placement.key_name,
-                    key_placement.row,
-                    key_placement.start_col,
-                    key_placement.width_u
+                    "key {:<12} -> x {:.1}, y {:.1}, w {:.2}u",
+                    key_name, key_placement.x, key_placement.y, key_placement.width_u
                 );
             }
             analyzer::geometry::types::PlacementType::Arrow => {
                 if let Some(block_id) = key_placement.block_id {
                     println!(
-                        "arrow {:<12} -> row {}, bcol {}",
-                        key_placement.key_name, block_id.row, block_id.bcol
+                        "arrow {:<12} -> x {:.1}, y {:.1}, row_u {}, col_u {}",
+                        key_name, key_placement.x, key_placement.y, block_id.row_u, block_id.col_u
                     );
                 }
             }

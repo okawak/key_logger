@@ -27,6 +27,9 @@ pub enum KbOptError {
         source: std::num::ParseIntError,
     },
 
+    #[error(transparent)]
+    Image(#[from] image::ImageError),
+
     #[error("Other error: {0}")]
     Other(String),
 }

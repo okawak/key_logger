@@ -1,7 +1,5 @@
-use analyzer::geometry::{
-    DebugRenderOptions, Geometry, GeometryName, Precompute, render_svg_debug,
-    visualization::layout_renderer::RenderMode,
-};
+use analyzer::csv_reader::KeyFreq;
+use analyzer::geometry::{Geometry, GeometryName, render_optimized_layout};
 use anyhow::Result;
 use std::fs;
 
@@ -13,25 +11,15 @@ fn main() -> Result<()> {
         (GeometryName::Ortho, "ortho"),
     ];
 
-    let opt = DebugRenderOptions {
-        render_mode: RenderMode::Partition,
-        legend_width_px: 320.0,
-        home_offset_px: (0.0, -10.0),
-        ..Default::default()
-    };
-
     for (geometry_name, file_prefix) in &geometries {
         let geom = Geometry::build(*geometry_name)?;
 
-        // 可視化用の空Precompute（表示には不要）
-        let precomp = Precompute {
-            key_cands: std::collections::HashMap::new(),
-            arrow_cells: Vec::new(),
-            arrow_edges: Vec::new(),
-        };
-        let output_path = format!("figs/{}_geometry_debug.svg", file_prefix);
+        // 空の頻度データ（表示テスト用）
+        let key_freq = KeyFreq::new();
 
-        render_svg_debug(&geom, &precomp, &output_path, &opt)?;
+        let output_path = format!("figs/{}_geometry_debug.png", file_prefix);
+
+        render_optimized_layout(&geom, &key_freq, &output_path)?;
         println!("wrote {}", output_path);
     }
 

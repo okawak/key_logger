@@ -5,7 +5,7 @@ use super::{
     types::*,
     zoning::finger_from_x,
 };
-use crate::constants::{MAX_COL_CELLS, MAX_ROW_CELLS, U2CELL};
+use crate::constants::{MAX_COL_CELLS, MAX_ROW_CELLS, U2CELL, cell_to_key_center};
 use crate::error::Result;
 
 /// Geometry construction: 0.25u grid, fixed letters reservation, homes
@@ -37,35 +37,57 @@ impl Geometry {
             name,
             cells,
             homes: HashMap::new(),
-            key_placements: Vec::new(),
+            key_placements: HashMap::new(),
         };
 
         // 固定文字（A..Z）を確保
-        geom.reserve_letter_blocks();
+        geom.reserve_letter_cells();
         // ホーム位置（ASDF / JKL;）
         geom.init_homes();
-        // 固定キー配置を設定
-        geom.init_fixed_key_placements();
 
         Ok(geom)
     }
 
     /// Reserve letter blocks (using builder pattern)
-    fn reserve_letter_blocks(&mut self) {
+    fn reserve_letter_cells(&mut self) {
+        // row-idx [u], start-cell [cell], Vec of key names
         let positions = match self.name {
             GeometryName::RowStagger => RowStaggerBuilder::get_letter_block_positions(),
             GeometryName::Ortho => OrthoBuilder::get_letter_block_positions(),
         };
 
-        for (row_idx, start_cell, count) in positions {
-            self.reserve_run(row_idx, start_cell, count);
+        // 行ごとの処理
+        for (row_idx, start_cell, names) in positions {
+            self.reserve_row(row_idx, start_cell, names);
         }
     }
-    fn reserve_run(&mut self, row_idx: usize, start_cell: usize, count: usize) {
+
+    /// 行ごとの処理
+    fn reserve_row(&mut self, row_idx: usize, start_cell: usize, names: Vec<&'static str>) {
         // 1u key
-        for col in start_cell..(start_cell + count * U2CELL as usize) {
-            for row in (row_idx * U2CELL as usize)..((row_idx + 1) * U2CELL as usize) {
-                self.cells[row][col].occupied = true;
+        for (col_idx, name) in names.iter().enumerate() {
+            // cell unit
+            let row = row_idx * U2CELL;
+            let col = start_cell + col_idx * U2CELL;
+            let (x, y) = cell_to_key_center(row, col, 1.0);
+
+            self.key_placements.insert(
+                name.to_string(),
+                KeyPlacement {
+                    placement_type: PlacementType::Fixed,
+                    key_id: None, // アルファベットキーはKeyIdにないためNone
+                    x,
+                    y,
+                    width_u: 1.0,
+                    block_id: None, // 固定キーにはblockIdは不要
+                },
+            );
+
+            // 1 x 1u (4 x 4 cell) を確保
+            for i in 0..U2CELL {
+                for j in 0..U2CELL {
+                    self.cells[row + i][col + j].occupied = true;
+                }
             }
         }
     }
@@ -93,43 +115,6 @@ impl Geometry {
                 RowStaggerBuilder::get_qwerty_label_position(row_idx, char_idx)
             }
             GeometryName::Ortho => OrthoBuilder::get_qwerty_label_position(row_idx, char_idx),
-        }
-    }
-
-    /// 固定キーの配置を初期化
-    fn init_fixed_key_placements(&mut self) {
-        // QWERTY配置の定義
-        let qwerty_layouts = [
-            (
-                3,
-                ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"].as_slice(),
-            ),
-            (2, ["A", "S", "D", "F", "G", "H", "J", "K", "L"].as_slice()),
-            (1, ["Z", "X", "C", "V", "B", "N", "M"].as_slice()),
-        ];
-
-        for (row_idx, chars) in qwerty_layouts {
-            let positions = match self.name {
-                GeometryName::RowStagger => RowStaggerBuilder::get_letter_block_positions(),
-                GeometryName::Ortho => OrthoBuilder::get_letter_block_positions(),
-            };
-
-            // 現在の行に対応する配置情報を取得
-            if let Some((_, start_cell, _)) = positions.iter().find(|(r, _, _)| *r == row_idx) {
-                for (char_idx, &ch) in chars.iter().enumerate() {
-                    let start_col = start_cell + char_idx * cells_from_u(ONE_U);
-
-                    self.key_placements.push(KeyPlacement {
-                        key_name: ch.to_string(),
-                        key_id: None, // アルファベットキーはKeyIdにないためNone
-                        row: row_idx,
-                        start_col,
-                        width_u: 1.0,
-                        placement_type: PlacementType::Fixed,
-                        block_id: None, // 固定キーにはblockIdは不要
-                    });
-                }
-            }
         }
     }
 }

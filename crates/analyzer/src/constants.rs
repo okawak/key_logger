@@ -9,7 +9,7 @@ pub const DEFAULT_FKEYS_MAX: u8 = 12;
 
 /// unit conversion u -> mm
 pub const U2MM: f64 = 19.0; // u -> mm (f64 for Fitts calculation)
-pub const U2CELL: u32 = 4; // u -> cell
+pub const U2CELL: usize = 4; // u -> cell
 pub const U2PX: f32 = 60.0; // u -> px (for visualization)
 
 /// Expected headers in CSV files
@@ -17,7 +17,7 @@ pub const EXPECTED_KEY_HEADER: &str = "Key"; // Key column header
 pub const EXPECTED_COUNT_HEADER: &str = "Count"; // Count column header
 
 /// Finger region (cell unit)
-pub const FINGER_X_BOUNDARY: [usize; 7] = [12, 16, 20, 28, 36, 40, 44];
+pub const FINGER_X_BOUNDARY: [usize; 7] = [24, 28, 32, 40, 48, 52, 56];
 
 /// calculate cell start position [cell] to [mm]
 /// - row: cell unit
@@ -34,9 +34,9 @@ pub fn cell_to_cordinate(row: usize, col: usize) -> (f32, f32) {
 /// - col: cell unit
 /// - width: [u]
 #[inline]
-pub fn cell_to_key_center(row: usize, col: usize, width: usize) -> (f32, f32) {
+pub fn cell_to_key_center(row: usize, col: usize, width: f32) -> (f32, f32) {
     let (mut x, mut y) = cell_to_cordinate(row, col);
-    x += width as f32 / 2.0 * U2MM as f32;
+    x += width / 2.0 * U2MM as f32;
     y += 1.0 * U2MM as f32;
     (x, y)
 }

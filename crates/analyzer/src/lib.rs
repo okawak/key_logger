@@ -13,8 +13,5 @@ pub use csv_reader::{
 };
 pub use error::KbOptError;
 pub use geometry::Geometry;
-pub use geometry::visualization::{
-    DebugRenderOptions, render_optimized_layout, save_optimized_layout,
-    save_optimized_layout_to_figs,
-};
+pub use geometry::{render_optimized_layout, save_optimized_layout, save_optimized_layout_to_figs};
 pub use keys::{ArrowKey, KeyId, SymbolKey, all_movable_keys, allowed_widths};

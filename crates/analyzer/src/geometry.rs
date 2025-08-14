@@ -8,4 +8,6 @@ pub mod zoning;
 
 pub use precompute::Precompute;
 pub use types::{Cell, CellId, Finger, Geometry, GeometryName, KeyCandidates};
-pub use visualization::{DebugRenderOptions, LegendPos, RenderMode, render_svg_debug};
+pub use visualization::{
+    render_optimized_layout, save_optimized_layout, save_optimized_layout_to_figs,
+};
