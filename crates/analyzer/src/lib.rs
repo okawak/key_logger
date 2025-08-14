@@ -12,6 +12,5 @@ pub use csv_reader::{
     KeyFreq, create_fallback_data, read_key_freq_csv, read_key_freq_from_directory,
 };
 pub use error::KbOptError;
-pub use geometry::Geometry;
-pub use geometry::{render_optimized_layout, save_optimized_layout, save_optimized_layout_to_figs};
+pub use geometry::{Geometry, save_layout};
 pub use keys::{ArrowKey, KeyId, SymbolKey, all_movable_keys, allowed_widths};

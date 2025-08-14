@@ -2,10 +2,11 @@ use anyhow::Result;
 use std::path::PathBuf;
 
 use analyzer::csv_reader::create_fallback_data;
+use analyzer::csv_reader::read_key_freq_from_directory;
 use analyzer::geometry::{Geometry, GeometryName};
 use analyzer::keys::ParseOptions;
 use analyzer::optimize::{SolveOptions, solve_layout};
-use analyzer::{read_key_freq_from_directory, save_optimized_layout_to_figs};
+use analyzer::save_layout;
 
 fn main() -> Result<()> {
     let include_fkeys = false;
@@ -81,7 +82,7 @@ fn main() -> Result<()> {
     }
 
     // figsディレクトリに最適化結果を画像として保存
-    match save_optimized_layout_to_figs(&geom, &key_freq) {
+    match save_layout(&geom, &key_freq, false, "optimized") {
         Ok(path) => println!("Optimized layout saved to: {}", path.display()),
         Err(e) => eprintln!("Failed to save layout visualization: {}", e),
     }

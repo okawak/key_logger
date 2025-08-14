@@ -10,6 +10,7 @@ use imageproc::drawing::{draw_filled_rect_mut, draw_text_mut};
 use imageproc::rect::Rect;
 
 use super::types::*;
+use crate::constants::U2PX;
 use crate::csv_reader::KeyFreq;
 use crate::error::Result;
 
@@ -18,15 +19,15 @@ pub struct Renderer {
     pub image: RgbImage,
     pub width: u32,
     pub height: u32,
-    pub scale_px_per_u: f32,
-    pub margin_px: f32,
+    pub margin_px: f32, // margin to keyboard edge
     pub font: FontVec,
+    pub render_finger_bg: bool,
 }
 
 impl Renderer {
     /// 新しいレンダラーを作成
-    pub fn new(width: u32, height: u32, scale_px_per_u: f32, margin_px: f32) -> Result<Self> {
-        let image = ImageBuffer::from_pixel(width, height, Rgb([255, 255, 255])); // 白背景
+    pub fn new(width: u32, height: u32, margin_px: f32, render_finger_bg: bool) -> Result<Self> {
+        let image = ImageBuffer::from_pixel(width, height, Colors::WHITE); // 白背景
 
         // システムフォントを読み込み
         let font = load_system_font()?;
@@ -35,9 +36,9 @@ impl Renderer {
             image,
             width,
             height,
-            scale_px_per_u,
             margin_px,
             font,
+            render_finger_bg,
         })
     }
 
@@ -64,8 +65,8 @@ impl Renderer {
     /// 座標変換関数を生成
     pub fn create_coord_transform(&self, y_min_u: f32) -> impl Fn(f32, f32) -> (f32, f32) + '_ {
         move |u_x: f32, u_y: f32| -> (f32, f32) {
-            let px_x = self.margin_px + u_x * self.scale_px_per_u;
-            let px_y = self.margin_px + (u_y - y_min_u) * self.scale_px_per_u;
+            let px_x = self.margin_px + u_x * U2PX;
+            let px_y = self.margin_px + (u_y - y_min_u) * U2PX;
             (px_x, px_y)
         }
     }
@@ -121,13 +122,13 @@ impl Colors {
 }
 
 /// 最適化レイアウトを描画
-pub fn render_optimized_layout<P: AsRef<Path>>(
+pub fn render_layout<P: AsRef<Path>>(
     geom: &Geometry,
     freqs: &KeyFreq,
     output_path: P,
+    render_finger_bg: bool,
 ) -> Result<()> {
     // キャンバスサイズの計算
-    let scale_px_per_u = 60.0;
     let margin_px = 24.0;
 
     // Y軸の範囲を取得
@@ -141,25 +142,18 @@ pub fn render_optimized_layout<P: AsRef<Path>>(
         }
     }
 
-    let geom_w_px = 15.0 * scale_px_per_u;
-    let geom_h_px = (y_max_u - y_min_u + 1.0) * scale_px_per_u;
+    let geom_w_px = 15.0 * U2PX;
+    let geom_h_px = (y_max_u - y_min_u + 1.0) * U2PX;
     let legend_width_px = 320.0; // 凡例エリアを拡大
 
     let width = (geom_w_px + legend_width_px + margin_px * 3.0) as u32;
     let height = (geom_h_px + margin_px * 2.0) as u32;
 
     // レンダラーを初期化
-    let mut renderer = Renderer::new(width, height, scale_px_per_u, margin_px)?;
+    let mut renderer = Renderer::new(width, height, margin_px, render_finger_bg)?;
 
     // Geometryから統一的に描画
-    render_from_geometry(
-        &mut renderer,
-        geom,
-        freqs,
-        scale_px_per_u,
-        margin_px,
-        y_min_u,
-    )?;
+    render_from_geometry(&mut renderer, geom, freqs, margin_px, y_min_u)?;
 
     // 凡例を描画
     render_legend(&mut renderer, geom, freqs, geom_w_px + margin_px * 2.0, 0.0)?;
@@ -175,21 +169,20 @@ fn render_from_geometry(
     renderer: &mut Renderer,
     geom: &Geometry,
     freqs: &KeyFreq,
-    scale_px_per_u: f32,
     margin_px: f32,
     y_min_u: f32,
 ) -> Result<()> {
     let to_px = |u_x: f32, u_y: f32| -> (f32, f32) {
-        let px_x = margin_px + u_x * scale_px_per_u;
-        let px_y = margin_px + (u_y - y_min_u) * scale_px_per_u;
+        let px_x = margin_px + u_x * U2PX;
+        let px_y = margin_px + (u_y - y_min_u) * U2PX;
         (px_x, px_y)
     };
 
     // 1. 指領域（cells）を描画
-    render_finger_regions(renderer, geom, scale_px_per_u, margin_px, y_min_u)?;
+    render_finger_regions(renderer, geom, margin_px, y_min_u)?;
 
     // 2. 全てのキー（key_placements）を描画
-    render_all_keys(renderer, geom, freqs, &to_px, scale_px_per_u)?;
+    render_all_keys(renderer, geom, freqs, &to_px)?;
 
     // 3. QWERTYラベルを描画（固定キーのみ）
     render_qwerty_labels_on_fixed_keys(renderer, geom, &to_px)?;
@@ -204,17 +197,16 @@ fn render_from_geometry(
 fn render_finger_regions(
     renderer: &mut Renderer,
     geom: &Geometry,
-    scale_px_per_u: f32,
     margin_px: f32,
     y_min_u: f32,
 ) -> Result<()> {
     let to_px = |u_x: f32, u_y: f32| -> (f32, f32) {
-        let px_x = margin_px + u_x * scale_px_per_u;
-        let px_y = margin_px + (u_y - y_min_u) * scale_px_per_u;
+        let px_x = margin_px + u_x * U2PX;
+        let px_y = margin_px + (u_y - y_min_u) * U2PX;
         (px_x, px_y)
     };
 
-    let cell_size_px = 0.25 * scale_px_per_u; // 0.25u = 1セル
+    let cell_size_px = 0.25 * U2PX; // 0.25u = 1セル
 
     for row in &geom.cells {
         for cell in row {
@@ -248,12 +240,11 @@ fn render_all_keys(
     geom: &Geometry,
     freqs: &KeyFreq,
     to_px: &impl Fn(f32, f32) -> (f32, f32),
-    scale_px_per_u: f32,
 ) -> Result<()> {
     for (key_name, key_placement) in &geom.key_placements {
         let (px_x, px_y) = to_px(key_placement.x, key_placement.y);
-        let width_px = key_placement.width_u * scale_px_per_u;
-        let height_px = scale_px_per_u; // 1u height
+        let width_px = key_placement.width_u * U2PX;
+        let height_px = U2PX; // 1u height
 
         // 配置タイプによって色分け
         let key_color = match key_placement.placement_type {
@@ -452,7 +443,12 @@ fn render_legend(
 }
 
 /// figsディレクトリに最適化レイアウトを保存
-pub fn save_optimized_layout_to_figs(geom: &Geometry, freqs: &KeyFreq) -> Result<PathBuf> {
+pub fn save_layout(
+    geom: &Geometry,
+    freqs: &KeyFreq,
+    render_finger_bg: bool,
+    prefix: &str,
+) -> Result<PathBuf> {
     let output_dir = "figs";
     fs::create_dir_all(output_dir)?;
 
@@ -461,22 +457,13 @@ pub fn save_optimized_layout_to_figs(geom: &Geometry, freqs: &KeyFreq) -> Result
         .unwrap()
         .as_secs();
 
-    let filename = format!("optimized_{:?}_{}.png", geom.name, timestamp)
+    let filename = format!("{}_{:?}_{}.png", prefix, geom.name, timestamp)
         .to_lowercase()
         .replace(" ", "_");
 
     let output_path = Path::new(output_dir).join(&filename);
 
-    render_optimized_layout(geom, freqs, &output_path)?;
+    render_layout(geom, freqs, &output_path, render_finger_bg)?;
 
     Ok(output_path)
-}
-
-/// 指定パスに最適化レイアウトを保存
-pub fn save_optimized_layout<P: AsRef<Path>>(
-    geom: &Geometry,
-    freqs: &KeyFreq,
-    output_path: P,
-) -> Result<()> {
-    render_optimized_layout(geom, freqs, output_path)
 }
