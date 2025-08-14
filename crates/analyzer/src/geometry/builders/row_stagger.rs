@@ -1,6 +1,6 @@
 use super::super::types::*;
 use super::GeometryBuilder;
-use crate::constants::{cell_to_key_center, U2CELL};
+use crate::constants::{U2CELL, cell_to_key_center};
 use std::collections::HashMap;
 
 // Constants for cell calculations
@@ -35,7 +35,7 @@ impl GeometryBuilder for RowStaggerBuilder {
         homes.insert(Finger::RMiddle, cell_to_key_center(8, 48, 1.0)); // K
         homes.insert(Finger::RRing, cell_to_key_center(8, 52, 1.0)); // L
         homes.insert(Finger::RPinky, cell_to_key_center(8, 56, 1.0)); // ;
-        homes.insert(Finger::RThumb, cell_to_key_center(0, 56, 1.0));
+        homes.insert(Finger::RThumb, cell_to_key_center(0, 44, 1.0));
 
         homes
     }

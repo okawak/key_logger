@@ -21,8 +21,10 @@ pub const FINGER_X_BOUNDARY: [usize; 7] = [24, 28, 32, 40, 48, 52, 56];
 
 /// Visualization
 pub const MARGIN: f32 = 24.0; // margin [px]
+pub const LEGEND_WIDTH: f32 = 320.0; // legend width [px]
+pub const FONT_SIZE: f32 = 16.0; // font size [px]
 
-/// calculate cell start position [cell] to [mm]
+/// calculate cell start position \[cell\] to \[mm\]
 /// - row: cell unit
 /// - col: cell unit
 #[inline]
@@ -32,15 +34,14 @@ pub fn cell_to_cordinate(row: usize, col: usize) -> (f32, f32) {
     (x, y)
 }
 
-/// calculate center key position [cell] to [mm] (assume vertical 1u size)
+/// calculate center key position \[cell\] to \[mm\] (assume vertical 1u size)
 /// - row: cell unit
 /// - col: cell unit
-/// - width: [u]
+/// - width: \[u\]
 #[inline]
 pub fn cell_to_key_center(row: usize, col: usize, width: f32) -> (f32, f32) {
     let (mut x, mut y) = cell_to_cordinate(row, col);
     x += width / 2.0 * U2MM as f32;
-    y += 1.0 * U2MM as f32;
+    y += 0.5 * U2MM as f32; // キーの中心位置（0.5u offset for center）
     (x, y)
 }
-

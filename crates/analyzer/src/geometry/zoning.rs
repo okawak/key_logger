@@ -1,6 +1,7 @@
 use crate::constants::FINGER_X_BOUNDARY;
 use crate::geometry::types::{Finger, Finger::*};
 
+/// 親指以外の指の割り当てをx座標を用いて決める
 #[inline]
 pub fn finger_from_x(x: usize) -> Finger {
     if x < FINGER_X_BOUNDARY[0] {

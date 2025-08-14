@@ -20,6 +20,7 @@ Thumbs.db
 
 # Output files
 *.csv
+*.json
 *.svg
 *.png
 

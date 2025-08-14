@@ -6,13 +6,31 @@ use font_kit::family_name::FamilyName;
 use font_kit::properties::Properties;
 use font_kit::source::SystemSource;
 use image::{ImageBuffer, Rgb, RgbImage};
-use imageproc::drawing::{draw_filled_rect_mut, draw_text_mut};
+use imageproc::drawing::{draw_filled_rect_mut, draw_hollow_rect_mut, draw_text_mut};
 use imageproc::rect::Rect;
 
 use super::types::*;
-use crate::constants::{MARGIN, U2PX};
+use crate::constants::{
+    FONT_SIZE, LEGEND_WIDTH, MARGIN, MAX_COL_CELLS, MAX_ROW_CELLS, U2CELL, U2MM, U2PX,
+};
 use crate::csv_reader::KeyFreq;
 use crate::error::Result;
+
+/// キー中心座標をピクセル座標に変換（Y軸反転、center-to-center）
+#[inline]
+fn key_center_to_px(u_x: f32, u_y: f32) -> (f32, f32) {
+    let px_x = MARGIN + u_x * U2PX;
+    let px_y = MARGIN + (MAX_ROW_CELLS as f32 / U2CELL as f32 - u_y) * U2PX;
+    (px_x, px_y)
+}
+
+/// Cell中心座標をピクセル座標に変換（Y軸反転、cell-to-center）
+#[inline]
+fn cell_center_to_px(cell_row: usize, cell_col: usize) -> (f32, f32) {
+    let u_x = (cell_col as f32 + 0.5) / U2CELL as f32;
+    let u_y = (cell_row as f32 + 0.5) / U2CELL as f32;
+    key_center_to_px(u_x, u_y)
+}
 
 /// 画像描画用のコンテキスト構造体
 pub struct Renderer {
@@ -20,12 +38,11 @@ pub struct Renderer {
     pub width: u32,
     pub height: u32,
     pub font: FontVec,
-    pub render_finger_bg: bool,
 }
 
 impl Renderer {
     /// 新しいレンダラーを作成
-    pub fn new(width: u32, height: u32, render_finger_bg: bool) -> Result<Self> {
+    pub fn new(width: u32, height: u32) -> Result<Self> {
         let image = ImageBuffer::from_pixel(width, height, Colors::WHITE); // 白背景
 
         // システムフォントを読み込み
@@ -36,14 +53,19 @@ impl Renderer {
             width,
             height,
             font,
-            render_finger_bg,
         })
     }
 
-    /// 矩形を描画
+    /// 矩形を描画（塗りつぶし）
     pub fn draw_rect(&mut self, x: f32, y: f32, width: f32, height: f32, color: Rgb<u8>) {
         let rect = Rect::at(x as i32, y as i32).of_size(width as u32, height as u32);
         draw_filled_rect_mut(&mut self.image, rect, color);
+    }
+
+    /// 矩形の境界線のみを描画（内部は透明）
+    pub fn draw_rect_outline(&mut self, x: f32, y: f32, width: f32, height: f32, color: Rgb<u8>) {
+        let rect = Rect::at(x as i32, y as i32).of_size(width as u32, height as u32);
+        draw_hollow_rect_mut(&mut self.image, rect, color);
     }
 
     /// テキストを描画
@@ -126,36 +148,17 @@ pub fn render_layout<P: AsRef<Path>>(
     output_path: P,
     render_finger_bg: bool,
 ) -> Result<()> {
-    // 座標範囲をkey_placementsから取得（u単位で）
-    let mut x_min_u = f32::INFINITY;
-    let mut x_max_u = f32::NEG_INFINITY;
-    let mut y_min_u = f32::INFINITY;
-    let mut y_max_u = f32::NEG_INFINITY;
-    
-    for key_placement in geom.key_placements.values() {
-        // key_placementのx, yはmm単位なので、u単位に変換
-        let x_u = key_placement.x / crate::constants::U2MM as f32;
-        let y_u = key_placement.y / crate::constants::U2MM as f32;
-        let width_u = key_placement.width_u;
-        
-        x_min_u = x_min_u.min(x_u - width_u / 2.0);
-        x_max_u = x_max_u.max(x_u + width_u / 2.0);
-        y_min_u = y_min_u.min(y_u - 0.5); // 1u height
-        y_max_u = y_max_u.max(y_u + 0.5);
-    }
+    let geom_w_px = (MAX_COL_CELLS as f32 / U2CELL as f32) * U2PX;
+    let geom_h_px = (MAX_ROW_CELLS as f32 / U2CELL as f32) * U2PX;
 
-    let geom_w_px = (x_max_u - x_min_u + 2.0) * U2PX; // マージン含む
-    let geom_h_px = (y_max_u - y_min_u + 2.0) * U2PX;
-    let legend_width_px = 320.0; // 凡例エリアを拡大
-
-    let width = (geom_w_px + legend_width_px + MARGIN * 3.0) as u32;
+    let width = (geom_w_px + LEGEND_WIDTH + MARGIN * 3.0) as u32;
     let height = (geom_h_px + MARGIN * 2.0) as u32;
 
     // レンダラーを初期化
-    let mut renderer = Renderer::new(width, height, render_finger_bg)?;
+    let mut renderer = Renderer::new(width, height)?;
 
     // Geometryから統一的に描画
-    render_from_geometry(&mut renderer, geom, freqs, x_min_u, x_max_u, y_min_u, y_max_u)?;
+    render_from_geometry(&mut renderer, geom, freqs, render_finger_bg)?;
 
     // 凡例を描画
     render_legend(&mut renderer, geom, freqs, geom_w_px + MARGIN * 2.0, 0.0)?;
@@ -171,44 +174,30 @@ fn render_from_geometry(
     renderer: &mut Renderer,
     geom: &Geometry,
     freqs: &KeyFreq,
-    x_min_u: f32,
-    x_max_u: f32,
-    y_min_u: f32,
-    y_max_u: f32,
+    render_finger_bg: bool,
 ) -> Result<()> {
-    let to_px = |u_x: f32, u_y: f32| -> (f32, f32) {
-        let px_x = MARGIN + (u_x - x_min_u) * U2PX;
-        // Y軸反転: indexが小さい方が下になるように
-        let px_y = MARGIN + (y_max_u - u_y) * U2PX;
-        (px_x, px_y)
-    };
-
     // 1. 指領域（cells）を描画
-    render_finger_regions(renderer, geom, &to_px)?;
+    if render_finger_bg {
+        render_finger_regions(renderer, geom)?;
+    }
 
-    // 2. 全てのキー（key_placements）を描画
-    render_all_keys(renderer, geom, freqs, &to_px)?;
+    // 2. 全てのキー（key_placements）を描画（ラベル含む）
+    render_all_keys(renderer, geom, freqs)?;
 
-    // 3. QWERTYラベルを描画（固定キーのみ）
-    render_qwerty_labels_on_fixed_keys(renderer, geom, &to_px)?;
-
-    // 4. ホームポジション（homes）を描画
-    render_home_positions_from_homes(renderer, geom, &to_px)?;
+    // 3. ホームポジション（homes）を描画
+    render_home_positions_from_homes(renderer, geom)?;
 
     Ok(())
 }
 
 /// 指領域を描画
-fn render_finger_regions(renderer: &mut Renderer, geom: &Geometry, to_px: &impl Fn(f32, f32) -> (f32, f32)) -> Result<()> {
-
-    let cell_size_px = U2PX / 4.0; // 1cell = 0.25u
+fn render_finger_regions(renderer: &mut Renderer, geom: &Geometry) -> Result<()> {
+    let cell_size_px = U2PX / U2CELL as f32; // 1cell -> px
 
     for row in &geom.cells {
         for cell in row {
-            // cell座標をu座標に変換
-            let cell_x_u = cell.id.col as f32 / crate::constants::U2CELL as f32;
-            let cell_y_u = cell.id.row as f32 / crate::constants::U2CELL as f32;
-            let (px_x, px_y) = to_px(cell_x_u, cell_y_u);
+            // cell中心座標をピクセル座標に変換
+            let (px_x, px_y) = cell_center_to_px(cell.id.row, cell.id.col);
 
             // 指ごとに色分け（薄い色で背景として）
             let finger_color = match cell.finger {
@@ -224,62 +213,43 @@ fn render_finger_regions(renderer: &mut Renderer, geom: &Geometry, to_px: &impl 
                 Finger::RPinky => Rgb([255, 230, 230]),  // 薄い赤
             };
 
-            renderer.draw_rect(px_x, px_y, cell_size_px, cell_size_px, finger_color);
+            // cell中心から左上角に調整（キーと同じ方式）
+            let cell_left_px = px_x - cell_size_px / 2.0;
+            let cell_top_px = px_y - cell_size_px / 2.0;
+            renderer.draw_rect(
+                cell_left_px,
+                cell_top_px,
+                cell_size_px,
+                cell_size_px,
+                finger_color,
+            );
         }
     }
     Ok(())
 }
 
 /// 全てのキーを描画
-fn render_all_keys(
-    renderer: &mut Renderer,
-    geom: &Geometry,
-    freqs: &KeyFreq,
-    to_px: &impl Fn(f32, f32) -> (f32, f32),
-) -> Result<()> {
+fn render_all_keys(renderer: &mut Renderer, geom: &Geometry, freqs: &KeyFreq) -> Result<()> {
     for (key_name, key_placement) in &geom.key_placements {
         // key_placementのx, yはmm単位なので、u単位に変換してからpx変換
-        let x_u = key_placement.x / crate::constants::U2MM as f32;
-        let y_u = key_placement.y / crate::constants::U2MM as f32;
-        let (px_x, px_y) = to_px(x_u, y_u);
+        let x_u = key_placement.x / U2MM as f32;
+        let y_u = key_placement.y / U2MM as f32;
+        let (px_x, px_y) = key_center_to_px(x_u, y_u);
+
         let width_px = key_placement.width_u * U2PX;
         let height_px = U2PX; // 1u height
-        
+
         // キー中心からキー左上角への調整
         let key_left_px = px_x - width_px / 2.0;
         let key_top_px = px_y - height_px / 2.0;
-        
 
-        // キーを黒色の四角で描画
-        let key_color = Colors::BLACK;
-
-        // キーの背景を描画
-        renderer.draw_rect(key_left_px, key_top_px, width_px, height_px, key_color);
-
-        // 境界線を描画
-        let border_color = Colors::DARK_GRAY;
-        let border_width = 2.0;
-        renderer.draw_rect(key_left_px, key_top_px, width_px, border_width, border_color); // 上
-        renderer.draw_rect(key_left_px, key_top_px, border_width, height_px, border_color); // 左
-        renderer.draw_rect(
-            key_left_px + width_px - border_width,
-            key_top_px,
-            border_width,
-            height_px,
-            border_color,
-        ); // 右
-        renderer.draw_rect(
-            key_left_px,
-            key_top_px + height_px - border_width,
-            width_px,
-            border_width,
-            border_color,
-        ); // 下
+        // キーの境界線のみを描画（内部は透明）
+        renderer.draw_rect_outline(key_left_px, key_top_px, width_px, height_px, Colors::BLACK);
 
         // キー名を描画（キー中心）
         let text_x = px_x - 10.0;
         let text_y = px_y - 8.0;
-        let text_color = Colors::WHITE; // 黒い背景に白いテキスト
+        let text_color = Colors::BLACK; // 透明背景に黒いテキスト
 
         // 矢印キーの場合は記号を表示
         let display_text = if key_placement.placement_type == PlacementType::Arrow {
@@ -294,7 +264,7 @@ fn render_all_keys(
             key_name.as_str()
         };
 
-        renderer.draw_text(text_x, text_y, display_text, 14.0, text_color);
+        renderer.draw_text(text_x, text_y, display_text, FONT_SIZE, text_color);
 
         // 頻度情報を描画（最適化されたキーのみ）
         if matches!(key_placement.placement_type, PlacementType::Optimized)
@@ -305,41 +275,20 @@ fn render_all_keys(
                 let freq_text = format!("{}", count);
                 let freq_x = key_left_px + 2.0;
                 let freq_y = key_top_px + height_px - 16.0;
-                renderer.draw_text(freq_x, freq_y, &freq_text, 10.0, Colors::WHITE);
+                renderer.draw_text(freq_x, freq_y, &freq_text, 10.0, Colors::BLACK);
             }
         }
     }
     Ok(())
 }
 
-/// QWERTYラベルを固定キーに描画
-fn render_qwerty_labels_on_fixed_keys(
-    renderer: &mut Renderer,
-    geom: &Geometry,
-    to_px: &impl Fn(f32, f32) -> (f32, f32),
-) -> Result<()> {
-    // QWERTY配列の定義
-    let qwerty_rows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
-
-    for (row_idx, row_chars) in qwerty_rows.iter().enumerate() {
-        for (char_idx, ch) in row_chars.chars().enumerate() {
-            let (label_x, label_y) = geom.get_qwerty_label_position(row_idx, char_idx);
-            let (px_x, px_y) = to_px(label_x, label_y);
-
-            renderer.draw_text(px_x, px_y, &ch.to_string(), 12.0, Colors::BLACK);
-        }
-    }
-    Ok(())
-}
-
 /// ホームポジションを描画
-fn render_home_positions_from_homes(
-    renderer: &mut Renderer,
-    geom: &Geometry,
-    to_px: &impl Fn(f32, f32) -> (f32, f32),
-) -> Result<()> {
+fn render_home_positions_from_homes(renderer: &mut Renderer, geom: &Geometry) -> Result<()> {
     for (finger, &(home_x, home_y)) in &geom.homes {
-        let (px_x, px_y) = to_px(home_x, home_y);
+        // home座標はmm単位なので、u単位に変換してからpx変換
+        let x_u = home_x / U2MM as f32;
+        let y_u = home_y / U2MM as f32;
+        let (px_x, px_y) = key_center_to_px(x_u, y_u);
 
         // ホームポジションを小さな円として描画（矩形で近似）
         let circle_size = 8.0;

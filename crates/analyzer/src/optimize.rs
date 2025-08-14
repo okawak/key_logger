@@ -121,6 +121,7 @@ pub fn solve_layout(
 
     // 正規化された確率値を取得
     let probabilities = freqs.probabilities();
+    println!("Probabilities: {:?}", probabilities);
 
     // 目的関数: Σ p_k·T^g(j,w)·x^g_{k,j,w} + Σ p_a·T^g_arrow(u)·m^g_{a,u}
     let mut obj = Expression::from(0.0);
