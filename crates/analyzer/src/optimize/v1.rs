@@ -5,8 +5,9 @@ use crate::geometry::{
     Geometry,
     fitts::euclid_u,
     precompute::{Precompute, compute_free_blocks},
-    types::{BlockId, CELL_U, CellId, KeyCandidates, ONE_U, cells_from_u},
+    types::{BlockId, CellId, KeyCandidates},
 };
+use crate::constants::U2CELL;
 use crate::keys::{ArrowKey, KeyId};
 
 /// 矢印キー定数
@@ -83,7 +84,7 @@ pub fn generate_v1_key_candidates(
                 for i in start..(start + len) {
                     let mut fits = Vec::new();
                     for &w in &widths {
-                        let need = cells_from_u(w);
+                        let need = (w * U2CELL as f32).round() as usize;
                         if i + need <= start + len {
                             fits.push(w);
                         }
@@ -151,14 +152,14 @@ pub fn build_candidates_from_precompute(
         if let Some(key_candidates) = precompute.key_cands.get(&key) {
             for (start_cell, widths) in &key_candidates.starts {
                 for &w_u in widths {
-                    let w_cells = cells_from_u(w_u);
+                    let w_cells = (w_u * U2CELL as f32).round() as usize;
                     if w_cells == 0 {
                         continue;
                     }
 
                     // 中心セルの指でホームを取る（簡略化）
                     let c_center = start_cell.col + w_cells / 2;
-                    let cx = start_cell.col as f32 * CELL_U + w_u * 0.5;
+                    let cx = start_cell.col as f32 / U2CELL as f32 + w_u * 0.5;
                     let cy = start_cell.row as f32;
 
                     let finger = geom.cells[start_cell.row][c_center].finger;
@@ -199,16 +200,16 @@ pub fn build_blocks_from_precompute(
 
     for &cell_id in &precompute.arrow_cells {
         let row = cell_id.row;
-        let bcol = cell_id.col / cells_from_u(ONE_U);
+        let bcol = cell_id.col / U2CELL;
         block_cells.entry((row, bcol)).or_default().push(cell_id);
     }
 
     for ((row, bcol), cells) in block_cells {
-        if cells.len() == cells_from_u(ONE_U) {
+        if cells.len() == U2CELL {
             // 完全な1uブロックのみ追加（簡略化）
-            let start_col = bcol * cells_from_u(ONE_U);
-            let x0 = start_col as f32 * CELL_U;
-            let cx = x0 + 0.5 * ONE_U;
+            let start_col = bcol * U2CELL;
+            let x0 = start_col as f32 / U2CELL as f32;
+            let cx = x0 + 0.5;
             let cy = row as f32;
 
             let cover_cells = [

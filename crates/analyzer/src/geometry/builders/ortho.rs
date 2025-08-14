@@ -1,11 +1,8 @@
 use super::super::types::*;
 use super::GeometryBuilder;
+use crate::constants::U2CELL;
 use crate::constants::cell_to_key_center;
 use std::collections::HashMap;
-
-// Constants for cell calculations
-const CELL_U: f32 = 0.25; // Each cell is 0.25u
-const ONE_U: f32 = 1.0; // 1u in terms of cell units
 
 pub struct OrthoBuilder;
 
@@ -43,13 +40,13 @@ impl GeometryBuilder for OrthoBuilder {
 
     fn get_fixed_key_position(row_idx: usize, col_idx: usize) -> (f32, f32) {
         // Orthoの場合は行オフセットを無視
-        let x0 = col_idx as f32 * CELL_U;
+        let x0 = col_idx as f32 / U2CELL as f32;
         let y0 = row_idx as f32 - 0.5;
         (x0, y0)
     }
 
     fn get_qwerty_label_position(row_idx: usize, char_idx: usize) -> (f32, f32) {
-        let x = (char_idx as f32 + 0.5) * ONE_U;
+        let x = char_idx as f32 + 0.5;
         let y = row_idx as f32;
         (x, y)
     }

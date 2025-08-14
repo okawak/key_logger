@@ -126,19 +126,26 @@ pub fn render_layout<P: AsRef<Path>>(
     output_path: P,
     render_finger_bg: bool,
 ) -> Result<()> {
-    // Y軸の範囲を取得
+    // 座標範囲をkey_placementsから取得（u単位で）
+    let mut x_min_u = f32::INFINITY;
+    let mut x_max_u = f32::NEG_INFINITY;
     let mut y_min_u = f32::INFINITY;
     let mut y_max_u = f32::NEG_INFINITY;
-    for row in &geom.cells {
-        for cell in row {
-            let cell_y_u = cell.id.row as f32;
-            y_min_u = y_min_u.min(cell_y_u);
-            y_max_u = y_max_u.max(cell_y_u);
-        }
+    
+    for key_placement in geom.key_placements.values() {
+        // key_placementのx, yはmm単位なので、u単位に変換
+        let x_u = key_placement.x / crate::constants::U2MM as f32;
+        let y_u = key_placement.y / crate::constants::U2MM as f32;
+        let width_u = key_placement.width_u;
+        
+        x_min_u = x_min_u.min(x_u - width_u / 2.0);
+        x_max_u = x_max_u.max(x_u + width_u / 2.0);
+        y_min_u = y_min_u.min(y_u - 0.5); // 1u height
+        y_max_u = y_max_u.max(y_u + 0.5);
     }
 
-    let geom_w_px = 15.0 * U2PX;
-    let geom_h_px = (y_max_u - y_min_u + 1.0) * U2PX;
+    let geom_w_px = (x_max_u - x_min_u + 2.0) * U2PX; // マージン含む
+    let geom_h_px = (y_max_u - y_min_u + 2.0) * U2PX;
     let legend_width_px = 320.0; // 凡例エリアを拡大
 
     let width = (geom_w_px + legend_width_px + MARGIN * 3.0) as u32;
@@ -148,7 +155,7 @@ pub fn render_layout<P: AsRef<Path>>(
     let mut renderer = Renderer::new(width, height, render_finger_bg)?;
 
     // Geometryから統一的に描画
-    render_from_geometry(&mut renderer, geom, freqs, y_min_u)?;
+    render_from_geometry(&mut renderer, geom, freqs, x_min_u, x_max_u, y_min_u, y_max_u)?;
 
     // 凡例を描画
     render_legend(&mut renderer, geom, freqs, geom_w_px + MARGIN * 2.0, 0.0)?;
@@ -164,16 +171,20 @@ fn render_from_geometry(
     renderer: &mut Renderer,
     geom: &Geometry,
     freqs: &KeyFreq,
+    x_min_u: f32,
+    x_max_u: f32,
     y_min_u: f32,
+    y_max_u: f32,
 ) -> Result<()> {
     let to_px = |u_x: f32, u_y: f32| -> (f32, f32) {
-        let px_x = MARGIN + u_x * U2PX;
-        let px_y = MARGIN + (u_y - y_min_u) * U2PX;
+        let px_x = MARGIN + (u_x - x_min_u) * U2PX;
+        // Y軸反転: indexが小さい方が下になるように
+        let px_y = MARGIN + (y_max_u - u_y) * U2PX;
         (px_x, px_y)
     };
 
     // 1. 指領域（cells）を描画
-    render_finger_regions(renderer, geom, y_min_u)?;
+    render_finger_regions(renderer, geom, &to_px)?;
 
     // 2. 全てのキー（key_placements）を描画
     render_all_keys(renderer, geom, freqs, &to_px)?;
@@ -188,19 +199,15 @@ fn render_from_geometry(
 }
 
 /// 指領域を描画
-fn render_finger_regions(renderer: &mut Renderer, geom: &Geometry, y_min_u: f32) -> Result<()> {
-    let to_px = |u_x: f32, u_y: f32| -> (f32, f32) {
-        let px_x = MARGIN + u_x * U2PX;
-        let px_y = MARGIN + (u_y - y_min_u) * U2PX;
-        (px_x, px_y)
-    };
+fn render_finger_regions(renderer: &mut Renderer, geom: &Geometry, to_px: &impl Fn(f32, f32) -> (f32, f32)) -> Result<()> {
 
-    let cell_size_px = 0.25 * U2PX; // 0.25u = 1セル
+    let cell_size_px = U2PX / 4.0; // 1cell = 0.25u
 
     for row in &geom.cells {
         for cell in row {
-            let cell_y_u = (cell.id.row as f32) * 0.25;
-            let cell_x_u = (cell.id.col as f32) * 0.25;
+            // cell座標をu座標に変換
+            let cell_x_u = cell.id.col as f32 / crate::constants::U2CELL as f32;
+            let cell_y_u = cell.id.row as f32 / crate::constants::U2CELL as f32;
             let (px_x, px_y) = to_px(cell_x_u, cell_y_u);
 
             // 指ごとに色分け（薄い色で背景として）
@@ -231,49 +238,48 @@ fn render_all_keys(
     to_px: &impl Fn(f32, f32) -> (f32, f32),
 ) -> Result<()> {
     for (key_name, key_placement) in &geom.key_placements {
-        let (px_x, px_y) = to_px(key_placement.x, key_placement.y);
+        // key_placementのx, yはmm単位なので、u単位に変換してからpx変換
+        let x_u = key_placement.x / crate::constants::U2MM as f32;
+        let y_u = key_placement.y / crate::constants::U2MM as f32;
+        let (px_x, px_y) = to_px(x_u, y_u);
         let width_px = key_placement.width_u * U2PX;
         let height_px = U2PX; // 1u height
         
+        // キー中心からキー左上角への調整
+        let key_left_px = px_x - width_px / 2.0;
+        let key_top_px = px_y - height_px / 2.0;
+        
 
-        // 配置タイプによって色分け
-        let key_color = match key_placement.placement_type {
-            PlacementType::Fixed => Colors::LIGHT_GRAY,
-            PlacementType::Optimized => Colors::BLUE,
-            PlacementType::Arrow => Colors::GREEN,
-        };
+        // キーを黒色の四角で描画
+        let key_color = Colors::BLACK;
 
         // キーの背景を描画
-        renderer.draw_rect(px_x, px_y, width_px, height_px, key_color);
+        renderer.draw_rect(key_left_px, key_top_px, width_px, height_px, key_color);
 
         // 境界線を描画
         let border_color = Colors::DARK_GRAY;
         let border_width = 2.0;
-        renderer.draw_rect(px_x, px_y, width_px, border_width, border_color); // 上
-        renderer.draw_rect(px_x, px_y, border_width, height_px, border_color); // 左
+        renderer.draw_rect(key_left_px, key_top_px, width_px, border_width, border_color); // 上
+        renderer.draw_rect(key_left_px, key_top_px, border_width, height_px, border_color); // 左
         renderer.draw_rect(
-            px_x + width_px - border_width,
-            px_y,
+            key_left_px + width_px - border_width,
+            key_top_px,
             border_width,
             height_px,
             border_color,
         ); // 右
         renderer.draw_rect(
-            px_x,
-            px_y + height_px - border_width,
+            key_left_px,
+            key_top_px + height_px - border_width,
             width_px,
             border_width,
             border_color,
         ); // 下
 
-        // キー名を描画
-        let text_x = px_x + width_px / 2.0 - 10.0;
-        let text_y = px_y + height_px / 2.0 - 8.0;
-        let text_color = if matches!(key_placement.placement_type, PlacementType::Fixed) {
-            Colors::BLACK
-        } else {
-            Colors::WHITE
-        };
+        // キー名を描画（キー中心）
+        let text_x = px_x - 10.0;
+        let text_y = px_y - 8.0;
+        let text_color = Colors::WHITE; // 黒い背景に白いテキスト
 
         // 矢印キーの場合は記号を表示
         let display_text = if key_placement.placement_type == PlacementType::Arrow {
@@ -297,8 +303,8 @@ fn render_all_keys(
             let count = freqs.get_count(key_id);
             if count > 0 {
                 let freq_text = format!("{}", count);
-                let freq_x = px_x + 2.0;
-                let freq_y = px_y + height_px - 16.0;
+                let freq_x = key_left_px + 2.0;
+                let freq_y = key_top_px + height_px - 16.0;
                 renderer.draw_text(freq_x, freq_y, &freq_text, 10.0, Colors::WHITE);
             }
         }

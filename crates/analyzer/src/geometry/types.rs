@@ -91,22 +91,3 @@ pub struct Geometry {
 pub struct KeyCandidates {
     pub starts: Vec<(CellId, Vec<f32>)>, // (Start cell, width candidates)
 }
-
-pub(crate) const ONE_U: f32 = 1.0;
-pub(crate) const CELL_U: f32 = 0.25;
-
-#[inline]
-pub(crate) fn cells_from_u(u: f32) -> usize {
-    ((u / CELL_U).round() as i32).max(0) as usize
-}
-#[inline]
-#[allow(dead_code)]
-pub(crate) fn u_from_cells(c: usize) -> f32 {
-    c as f32 * CELL_U
-}
-
-#[inline]
-#[allow(dead_code)]
-pub(crate) fn row_idx(r: usize) -> usize {
-    r
-}

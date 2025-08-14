@@ -1,16 +1,10 @@
 use super::super::types::*;
 use super::GeometryBuilder;
-use crate::constants::cell_to_key_center;
+use crate::constants::{cell_to_key_center, U2CELL};
 use std::collections::HashMap;
 
 // Constants for cell calculations
-const CELL_U: f32 = 0.25; // Each cell is 0.25u
 const ONE_U: f32 = 1.0; // 1u in terms of cell units
-
-// Convert u to number of cells
-fn cells_from_u(u: f32) -> usize {
-    (u / CELL_U).round() as usize
-}
 
 pub struct RowStaggerBuilder;
 
@@ -52,13 +46,13 @@ impl GeometryBuilder for RowStaggerBuilder {
         let alphabet_start_u = alphabet_start_positions[row_idx];
 
         // セル単位でのアルファベット開始位置計算
-        let alphabet_start_cells = cells_from_u(alphabet_start_u);
+        let alphabet_start_cells = (alphabet_start_u * U2CELL as f32).round() as usize;
 
         // col_idx番目のキーのセル開始位置（1u = 4セル）
-        let key_start_cells = alphabet_start_cells + col_idx * cells_from_u(ONE_U);
+        let key_start_cells = alphabet_start_cells + col_idx * U2CELL;
 
         // 固定キー枠の位置（左端）を計算（簡略化）
-        let x0 = key_start_cells as f32 * CELL_U;
+        let x0 = key_start_cells as f32 * 1.0 / U2CELL as f32;
         let y0 = row_idx as f32 - 0.5;
         (x0, y0)
     }
@@ -69,13 +63,13 @@ impl GeometryBuilder for RowStaggerBuilder {
         let alphabet_start_u = alphabet_start_positions[row_idx];
 
         // セル単位でのアルファベット開始位置計算
-        let alphabet_start_cells = cells_from_u(alphabet_start_u);
+        let alphabet_start_cells = (alphabet_start_u * U2CELL as f32).round() as usize;
 
         // char_idx番目のキーのセル開始位置（1u = 4セル）
-        let key_start_cells = alphabet_start_cells + char_idx * cells_from_u(ONE_U);
+        let key_start_cells = alphabet_start_cells + char_idx * U2CELL;
 
         // 固定キー枠の位置（左端）を計算 - get_fixed_key_positionと同じロジック
-        let key_left_u = key_start_cells as f32 * CELL_U;
+        let key_left_u = key_start_cells as f32 * 1.0 / U2CELL as f32;
 
         // ラベル位置はキーの中心
         let key_center_u = key_left_u + ONE_U / 2.0;

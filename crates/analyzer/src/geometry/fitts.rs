@@ -1,13 +1,5 @@
-use super::{types::*, zoning::finger_from_x};
-use crate::constants::MAX_COL_CELLS;
-
-// Constants for cell calculations
-const CELL_U: f32 = 0.25; // Each cell is 0.25u
-
-// Convert u to number of cells
-fn cells_from_u(u: f32) -> usize {
-    (u / CELL_U).round() as usize
-}
+use super::types::*;
+use crate::constants::U2CELL;
 
 /// Fitts' law (v1: W_eff = w)
 #[inline]
@@ -19,19 +11,14 @@ impl Geometry {
     /// Distance from finger home to key center [u]
     pub fn distance_u(&self, start: CellId, width_u: f32) -> f64 {
         let row = start.row;
-        let center_col = start.col + cells_from_u(width_u) / 2;
-        let x = (center_col as f32) * CELL_U;
-        let y = row as f32;
-        let finger = if row == 0 {
-            if x < (MAX_COL_CELLS / 2) as f32 * CELL_U {
-                Finger::LThumb
-            } else {
-                Finger::RThumb
-            }
-        } else {
-            finger_from_x(center_col)
-        };
+        let center_col = start.col + ((width_u * U2CELL as f32).round() as usize) / 2;
+        let x = center_col as f32 / U2CELL as f32;
+        let y = row as f32 / U2CELL as f32;
+        
+        // build済みのcell情報から指を取得
+        let finger = self.cells[row][center_col].finger;
         let (hx, hy) = self.homes[&finger];
+        
         let dx = (x - hx) as f64;
         let dy = (y - hy) as f64;
         (dx * dx + dy * dy).sqrt()
