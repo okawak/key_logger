@@ -4,7 +4,6 @@ use std::path::{Path, PathBuf};
 use super::super::types::Geometry;
 use crate::csv_reader::KeyFreq;
 use crate::error::KbOptError;
-use crate::optimize::SolutionLayout;
 
 /// HTMLエンコード（SVGテキスト用）
 pub fn html_encode(text: &str) -> String {
@@ -18,7 +17,6 @@ pub fn html_encode(text: &str) -> String {
 /// figsディレクトリに最適化レイアウトを保存
 pub fn save_optimized_layout_to_figs(
     geom: &Geometry,
-    solution: &SolutionLayout,
     freqs: &KeyFreq,
 ) -> Result<PathBuf, KbOptError> {
     let output_dir = "figs";
@@ -35,7 +33,7 @@ pub fn save_optimized_layout_to_figs(
 
     let output_path = Path::new(output_dir).join(&filename);
 
-    super::layout_renderer::render_optimized_layout(geom, solution, freqs, &output_path)?;
+    super::layout_renderer::render_optimized_layout(geom, freqs, &output_path)?;
 
     println!("Optimized layout saved to: {}", output_path.display());
     Ok(output_path)
@@ -44,9 +42,8 @@ pub fn save_optimized_layout_to_figs(
 /// 指定パスに最適化レイアウトを保存
 pub fn save_optimized_layout<P: AsRef<Path>>(
     geom: &Geometry,
-    solution: &SolutionLayout,
     freqs: &KeyFreq,
     output_path: P,
 ) -> Result<(), KbOptError> {
-    super::layout_renderer::render_optimized_layout(geom, solution, freqs, output_path)
+    super::layout_renderer::render_optimized_layout(geom, freqs, output_path)
 }

@@ -8,7 +8,6 @@ use super::components::*;
 use super::legend::{LegendPos, draw_legend_corner, render_layout_legend};
 use crate::csv_reader::KeyFreq;
 use crate::error::{KbOptError, Result};
-use crate::optimize::SolutionLayout;
 
 /// 描画モード
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -152,7 +151,7 @@ pub fn render_svg_debug<P: AsRef<Path>>(
     )?;
 
     // 座標変換関数
-    let to_px = |u_x: f32, u_y: f32| -> (f32, f32) {
+    let _to_px = |u_x: f32, u_y: f32| -> (f32, f32) {
         let px_x = m + u_x * s;
         let px_y = m + (u_y - y_min_u) * s;
         (px_x, px_y)
@@ -192,7 +191,6 @@ pub fn render_svg_debug<P: AsRef<Path>>(
 /// 最適化レイアウトの描画
 pub fn render_optimized_layout<P: AsRef<Path>>(
     geom: &Geometry,
-    solution: &SolutionLayout,
     freqs: &KeyFreq,
     output_path: P,
 ) -> Result<()> {
@@ -253,14 +251,9 @@ pub fn render_optimized_layout<P: AsRef<Path>>(
         render_qwerty_labels(&mut f, geom, &opt, &to_px)?;
     }
 
-    // 最適化されたキーを描画
-    if opt.show_optimized_keys {
-        render_optimized_keys(&mut f, geom, solution, freqs, &opt, &to_px)?;
-    }
-
-    // 矢印キーを描画
-    if opt.show_arrow_keys {
-        render_arrow_keys(&mut f, geom, solution, freqs, &opt, &to_px)?;
+    // 最適化されたキーと矢印キーを統一的に描画
+    if opt.show_optimized_keys || opt.show_arrow_keys {
+        render_all_keys_from_geometry(&mut f, geom, freqs, &opt, &to_px)?;
     }
 
     // ホームポジションを描画
@@ -270,7 +263,7 @@ pub fn render_optimized_layout<P: AsRef<Path>>(
 
     // 凡例を描画
     if opt.show_legend {
-        render_layout_legend(&mut f, solution, freqs, geom_w_px + m * 2.0, 0.0)?;
+        render_layout_legend(&mut f, geom, freqs, geom_w_px + m * 2.0, 0.0)?;
     }
 
     writeln!(f, "</svg>")?;

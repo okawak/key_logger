@@ -2,10 +2,10 @@ use std::collections::{BTreeSet, HashMap};
 
 use crate::constants::U2MM;
 use crate::geometry::{
-    Geometry, 
-    precompute::{Precompute, compute_free_blocks}, 
-    types::{CellId, KeyCandidates, cells_from_u, CELL_U, ONE_U},
-    fitts::euclid_u
+    Geometry,
+    fitts::euclid_u,
+    precompute::{Precompute, compute_free_blocks},
+    types::{BlockId, CELL_U, CellId, KeyCandidates, ONE_U, cells_from_u},
 };
 use crate::keys::{ArrowKey, KeyId};
 
@@ -53,12 +53,7 @@ pub struct Cand {
     pub cover_cells: Vec<CellId>,
 }
 
-/// 1u ブロック（矢印用の占有単位）
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct BlockId {
-    pub row: usize,
-    pub bcol: usize, // 1u ブロック列（0.25u 4セルごと）
-}
+// BlockIdはgeometry/types.rsに移動しました
 
 #[derive(Debug, Clone)]
 pub struct Block {
@@ -78,7 +73,7 @@ pub fn generate_v1_key_candidates(
     for &k in movable_keys {
         let widths = width_candidates_for_key(&k);
         let mut starts = Vec::new();
-        
+
         // 全行に配置可能
         for r in 0..geom.cells.len() {
             if r >= free_blocks.len() {
@@ -107,7 +102,7 @@ pub fn generate_v1_key_candidates(
 /// v1: 全空きセルを矢印キー配置候補とする
 pub fn generate_v1_arrow_region(geom: &Geometry) -> (Vec<CellId>, Vec<(CellId, CellId)>) {
     let mut arrow_cells = Vec::new();
-    
+
     // 全ての空きセルを矢印キー候補に追加
     for r in 0..geom.cells.len() {
         for c in 0..geom.cells[r].len() {
@@ -116,11 +111,11 @@ pub fn generate_v1_arrow_region(geom: &Geometry) -> (Vec<CellId>, Vec<(CellId, C
             }
         }
     }
-    
+
     // 4近傍隣接エッジを生成
     let arrow_set: std::collections::HashSet<_> = arrow_cells.iter().cloned().collect();
     let mut arrow_edges = Vec::new();
-    
+
     for &cell_id in &arrow_cells {
         let (r, c) = (cell_id.row, cell_id.col);
         let neighbors = [
@@ -129,7 +124,7 @@ pub fn generate_v1_arrow_region(geom: &Geometry) -> (Vec<CellId>, Vec<(CellId, C
             (r + 1, c),
             (r.wrapping_sub(1), c),
         ];
-        
+
         for (rr, cc) in neighbors {
             if rr < geom.cells.len() && cc < geom.cells[rr].len() {
                 let neighbor_id = CellId::new(rr, cc);
@@ -139,7 +134,7 @@ pub fn generate_v1_arrow_region(geom: &Geometry) -> (Vec<CellId>, Vec<(CellId, C
             }
         }
     }
-    
+
     (arrow_cells, arrow_edges)
 }
 
@@ -151,7 +146,7 @@ pub fn build_candidates_from_precompute(
     opt: &super::SolveOptions,
 ) -> Vec<Cand> {
     let mut out = Vec::new();
-    
+
     for &key in movable {
         if let Some(key_candidates) = precompute.key_cands.get(&key) {
             for (start_cell, widths) in &key_candidates.starts {
@@ -160,22 +155,22 @@ pub fn build_candidates_from_precompute(
                     if w_cells == 0 {
                         continue;
                     }
-                    
+
                     // 中心セルの指でホームを取る（簡略化）
                     let c_center = start_cell.col + w_cells / 2;
                     let cx = start_cell.col as f32 * CELL_U + w_u * 0.5;
                     let cy = start_cell.row as f32;
-                    
+
                     let finger = geom.cells[start_cell.row][c_center].finger;
                     let home = geom.homes.get(&finger).cloned().unwrap_or((cx, cy));
                     let d_mm = (euclid_u((cx, cy), home) as f64) * U2MM;
                     let w_mm = (w_u as f64) * U2MM;
                     let t_ms = opt.a_ms + opt.b_ms * ((d_mm / w_mm + 1.0).log2());
-                    
+
                     let cover_cells: Vec<CellId> = (start_cell.col..start_cell.col + w_cells)
                         .map(|cc| CellId::new(start_cell.row, cc))
                         .collect();
-                    
+
                     out.push(Cand {
                         key,
                         row: start_cell.row,
@@ -198,16 +193,16 @@ pub fn build_blocks_from_precompute(
 ) -> (Vec<Block>, HashMap<BlockId, usize>) {
     let mut blocks = Vec::new();
     let mut index = HashMap::new();
-    
+
     // 1uブロック単位でグループ化
     let mut block_cells: HashMap<(usize, usize), Vec<CellId>> = HashMap::new();
-    
+
     for &cell_id in &precompute.arrow_cells {
         let row = cell_id.row;
         let bcol = cell_id.col / cells_from_u(ONE_U);
         block_cells.entry((row, bcol)).or_default().push(cell_id);
     }
-    
+
     for ((row, bcol), cells) in block_cells {
         if cells.len() == cells_from_u(ONE_U) {
             // 完全な1uブロックのみ追加（簡略化）
@@ -215,17 +210,17 @@ pub fn build_blocks_from_precompute(
             let x0 = start_col as f32 * CELL_U;
             let cx = x0 + 0.5 * ONE_U;
             let cy = row as f32;
-            
+
             let cover_cells = [
                 CellId::new(row, start_col),
                 CellId::new(row, start_col + 1),
                 CellId::new(row, start_col + 2),
                 CellId::new(row, start_col + 3),
             ];
-            
-            let block_id = BlockId { row, bcol };
+
+            let block_id = BlockId::new(row, bcol);
             let idx = blocks.len();
-            
+
             blocks.push(Block {
                 id: block_id,
                 center: (cx, cy),
@@ -234,28 +229,31 @@ pub fn build_blocks_from_precompute(
             index.insert(block_id, idx);
         }
     }
-    
+
     (blocks, index)
 }
 
 /// Precomputeから隣接エッジを生成
-pub fn build_adjacency_from_precompute(blocks: &[Block], precompute: &Precompute) -> Vec<(usize, usize)> {
+pub fn build_adjacency_from_precompute(
+    blocks: &[Block],
+    precompute: &Precompute,
+) -> Vec<(usize, usize)> {
     let mut block_index: HashMap<CellId, usize> = HashMap::new();
     for (i, block) in blocks.iter().enumerate() {
         for &cell_id in &block.cover_cells {
             block_index.insert(cell_id, i);
         }
     }
-    
+
     let mut edges = Vec::new();
     for &(from_cell, to_cell) in &precompute.arrow_edges {
-        if let (Some(&from_block), Some(&to_block)) = 
+        if let (Some(&from_block), Some(&to_block)) =
             (block_index.get(&from_cell), block_index.get(&to_cell))
             && from_block != to_block
         {
             edges.push((from_block, to_block));
         }
     }
-    
+
     edges
 }

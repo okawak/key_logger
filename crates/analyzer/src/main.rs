@@ -10,8 +10,8 @@ use analyzer::{read_key_freq_from_directory, save_optimized_layout_to_figs};
 fn main() -> Result<()> {
     let include_fkeys = false;
 
-    // geometry (row/col staggered, ortho)
-    let geom = Geometry::build(GeometryName::RowStagger)?;
+    // geometry (row staggered, ortho)
+    let mut geom = Geometry::build(GeometryName::RowStagger)?;
 
     // path to CSV file directory
     let csv_dir = PathBuf::from("csv");
@@ -55,17 +55,36 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    let sol = solve_layout(&geom, &key_freq, &opt)?;
+    let sol = solve_layout(&mut geom, &key_freq, &opt)?;
+
     println!("objective(ms): {:.3}", sol.objective_ms);
-    for (k, (r, c, w)) in sol.key_place.iter() {
-        println!("key {:<12} -> row {}, col {}, w {:.2}u", k, r, c, w);
-    }
-    for (k, bid) in sol.arrow_place.iter() {
-        println!("arrow {:<12} -> row {}, bcol {}", k, bid.row, bid.bcol);
+
+    // キー配置情報をGeometryから出力
+    for key_placement in &geom.key_placements {
+        match key_placement.placement_type {
+            analyzer::geometry::types::PlacementType::Optimized => {
+                println!(
+                    "key {:<12} -> row {}, col {}, w {:.2}u",
+                    key_placement.key_name,
+                    key_placement.row,
+                    key_placement.start_col,
+                    key_placement.width_u
+                );
+            }
+            analyzer::geometry::types::PlacementType::Arrow => {
+                if let Some(block_id) = key_placement.block_id {
+                    println!(
+                        "arrow {:<12} -> row {}, bcol {}",
+                        key_placement.key_name, block_id.row, block_id.bcol
+                    );
+                }
+            }
+            _ => {} // 固定キーは出力しない
+        }
     }
 
     // figsディレクトリに最適化結果を画像として保存
-    match save_optimized_layout_to_figs(&geom, &sol, &key_freq) {
+    match save_optimized_layout_to_figs(&geom, &key_freq) {
         Ok(path) => println!("Optimized layout saved to: {}", path.display()),
         Err(e) => eprintln!("Failed to save layout visualization: {}", e),
     }

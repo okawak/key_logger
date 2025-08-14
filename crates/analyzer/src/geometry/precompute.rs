@@ -1,7 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use super::types::*;
-use crate::keys::{KeyId, allowed_widths};
+use crate::keys::KeyId;
 
 /// Preprocessing output (bundle passed to optimization)
 #[derive(Debug, Clone)]

@@ -1,5 +1,5 @@
 use super::{types::*, zoning::finger_from_x};
-use crate::constants::{MAX_COL_CELLS, U2CELL};
+use crate::constants::MAX_COL_CELLS;
 
 // Constants for cell calculations
 const CELL_U: f32 = 0.25; // Each cell is 0.25u

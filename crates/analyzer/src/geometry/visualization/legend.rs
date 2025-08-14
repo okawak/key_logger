@@ -1,11 +1,11 @@
 use std::io::Write;
 
 use super::super::types::Finger;
+use super::super::types::Geometry;
 use super::colors::{color_of, finger_label};
 use super::svg_utils::html_encode;
 use crate::csv_reader::KeyFreq;
 use crate::error::KbOptError;
-use crate::optimize::SolutionLayout;
 
 /// 凡例位置
 #[derive(Debug, Clone, Copy)]
@@ -104,7 +104,7 @@ pub fn draw_legend_corner<W: Write>(
 /// レイアウト凡例を描画
 pub fn render_layout_legend<W: Write>(
     w: &mut W,
-    solution: &SolutionLayout,
+    geom: &Geometry,
     _freqs: &KeyFreq,
     legend_x: f32,
     legend_y: f32,
@@ -117,22 +117,25 @@ pub fn render_layout_legend<W: Write>(
         legend_y + 20.0
     )?;
 
-    // 目的関数値
+    // キー配置数（最適化キーのみカウント）
+    let optimized_key_count = geom
+        .key_placements
+        .iter()
+        .filter(|p| {
+            matches!(
+                p.placement_type,
+                super::super::types::PlacementType::Optimized
+                    | super::super::types::PlacementType::Arrow
+            )
+        })
+        .count();
+
     writeln!(
         w,
-        r##"<text x="{}" y="{}" font-family="Arial, sans-serif" font-size="12px" fill="#000">Objective: {:.1}ms</text>"##,
+        r##"<text x="{}" y="{}" font-family="Arial, sans-serif" font-size="12px" fill="#000">Optimized Keys: {}</text>"##,
         legend_x,
         legend_y + 50.0,
-        solution.objective_ms
-    )?;
-
-    // キー数
-    writeln!(
-        w,
-        r##"<text x="{}" y="{}" font-family="Arial, sans-serif" font-size="12px" fill="#000">Total Keys: {}</text>"##,
-        legend_x,
-        legend_y + 70.0,
-        solution.key_place.len()
+        optimized_key_count
     )?;
 
     // 頻度色の凡例

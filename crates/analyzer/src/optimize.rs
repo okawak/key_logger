@@ -1,27 +1,25 @@
 use std::collections::{BTreeSet, HashMap};
 
-use good_lp::{Expression, ProblemVariables, Variable, coin_cbc, variable, SolverModel, Solution};
+use good_lp::{Expression, ProblemVariables, Solution, SolverModel, Variable, coin_cbc, variable};
 
 use crate::constants::U2MM;
 use crate::csv_reader::KeyFreq;
 use crate::error::KbOptError;
 use crate::geometry::{
-    Geometry, 
-    precompute::Precompute, 
-    types::CellId,
-    fitts::euclid_u
+    Geometry,
+    fitts::euclid_u,
+    precompute::Precompute,
+    types::{CellId, KeyPlacement, PlacementType},
 };
-use crate::keys::KeyId;
+use crate::keys::{KeyId, ParseOptions, all_movable_keys};
 
 pub mod v1;
 
 use v1::{
-    ARROW_KEYS, generate_v1_key_candidates, generate_v1_arrow_region,
-    build_candidates_from_precompute, build_blocks_from_precompute, build_adjacency_from_precompute,
-    is_arrow, Cand, Block
+    ARROW_KEYS, build_adjacency_from_precompute, build_blocks_from_precompute,
+    build_candidates_from_precompute, generate_v1_arrow_region, generate_v1_key_candidates,
+    is_arrow,
 };
-
-pub use v1::BlockId;
 
 /// ソルバ設定・Fitts 係数など
 #[derive(Debug, Clone)]
@@ -47,29 +45,23 @@ impl Default for SolveOptions {
 #[derive(Debug, Clone)]
 pub struct SolutionLayout {
     pub objective_ms: f64,
-    // key -> (row, start_col(0.25u), w_u)
-    pub key_place: HashMap<String, (usize, usize, f32)>,
-    // arrows: name -> BlockId
-    pub arrow_place: HashMap<String, BlockId>,
 }
 
 pub fn solve_layout(
-    geom: &Geometry,
+    geom: &mut Geometry,
     freqs: &KeyFreq,
     opt: &SolveOptions,
 ) -> Result<SolutionLayout, KbOptError> {
-    // 1) 集合を作る
-    let mut movable: BTreeSet<KeyId> = freqs
-        .counts()
-        .keys()
-        .filter(|k| !is_arrow(k))
-        .cloned()
-        .collect();
+    // 1) 集合を作る - CSVにないキーも含める（count 0として扱う）
+    let parse_opt = ParseOptions {
+        include_fkeys: opt.include_fkeys,
+        ..Default::default()
+    };
 
-    // Fキーの有無
-    if !opt.include_fkeys {
-        movable.retain(|k| !matches!(k, KeyId::Function(_)));
-    }
+    let movable: BTreeSet<KeyId> = all_movable_keys(&parse_opt)
+        .into_iter()
+        .filter(|k| !is_arrow(k))
+        .collect();
 
     // 2) v1: 全キーが全行に配置可能、全空きセルが矢印キー候補
     let movable_vec: Vec<KeyId> = movable.iter().cloned().collect();
@@ -129,14 +121,19 @@ pub fn solve_layout(
         .map(|_| vars.add(variable().min(0.0)))
         .collect();
 
-    // 目的関数: Σ f_k·T^g(j,w)·x^g_{k,j,w} + Σ f_a·T^g_arrow(u)·m^g_{a,u}
+    // 正規化された確率値を取得
+    let probabilities = freqs.probabilities();
+
+    // 目的関数: Σ p_k·T^g(j,w)·x^g_{k,j,w} + Σ p_a·T^g_arrow(u)·m^g_{a,u}
     let mut obj = Expression::from(0.0);
-    // 通常キー項: Σ_{k∈K} Σ_{j∈I^g_k} Σ_{w∈W_k} f_k·T^g(j,w)·x^g_{k,j,w}
+    // 通常キー項: Σ_{k∈K} Σ_{j∈I^g_k} Σ_{w∈W_k} p_k·T^g(j,w)·x^g_{k,j,w}
     for (i, cand) in cands.iter().enumerate() {
-        let f_k = freqs.get_count(cand.key) as f64;
-        obj += f_k * cand.cost_ms * x_vars[i];
+        let p_k = probabilities.get(&cand.key).copied().unwrap_or(0.0);
+        if p_k > 0.0 {
+            obj += p_k * cand.cost_ms * x_vars[i];
+        }
     }
-    // 矢印キー項: Σ_{a∈A} Σ_{u∈U^g} f_a·T^g_arrow(u)·m^g_{a,u}
+    // 矢印キー項: Σ_{a∈A} Σ_{u∈U^g} p_a·T^g_arrow(u)·m^g_{a,u}
     for (u, blk) in blocks.iter().enumerate() {
         let center_cell = blk.cover_cells[2]; // 中央近傍
         let finger = geom.cells[center_cell.row][center_cell.col].finger;
@@ -149,10 +146,10 @@ pub fn solve_layout(
         let w_mm = 1.0f64 * U2MM;
         let t_ms = opt.a_ms + opt.b_ms * ((d_u / w_mm + 1.0).log2());
         for &arrow_key in &ARROW_KEYS {
-            let f_a = freqs.get_count(arrow_key) as f64;
-            if f_a > 0.0 {
+            let p_a = probabilities.get(&arrow_key).copied().unwrap_or(0.0);
+            if p_a > 0.0 {
                 let m_au = m_vars.get(&(arrow_key, u)).unwrap();
-                obj += (f_a * t_ms) * *m_au;
+                obj += (p_a * t_ms) * *m_au;
             }
         }
     }
@@ -165,6 +162,7 @@ pub fn solve_layout(
     let mut model = vars.minimise(obj).using(coin_cbc);
 
     // (i) 一意性制約: Σ_{j∈I^g_k} Σ_{w∈W_k} x^g_{k,j,w} = 1 ∀k∈K
+    // movable集合に含まれている全キーは必須配置（頻度0でも配置する）
     for &key in movable.iter() {
         let idxs: Vec<usize> = cands
             .iter()
@@ -174,12 +172,8 @@ pub fn solve_layout(
             .collect();
         if !idxs.is_empty() {
             let sum: Expression = idxs.iter().map(|i| x_vars[*i]).sum();
-            // 頻度>0のキーは必須配置
-            if freqs.get_count(key) > 0 {
-                model = model.with(sum.clone().eq(1));
-            } else {
-                model = model.with(sum.clone() << 1);
-            }
+            // movable集合のキーは全て必須配置
+            model = model.with(sum.clone().eq(1));
         }
     }
 
@@ -260,28 +254,47 @@ pub fn solve_layout(
         .solve()
         .map_err(|e| KbOptError::Other(e.to_string()))?;
 
-    // 7) 解の復元
-    let mut key_place = HashMap::new();
+    // 7) 解の復元 - 解の情報を直接Geometryに適用
+    let objective_ms = sol.eval(&objective_expr);
+
+    // 既存の最適化キーをクリア（固定キーは残す）
+    geom.key_placements
+        .retain(|p| p.placement_type == PlacementType::Fixed);
+
+    // 通常キーの配置を追加
     for (i, cand) in cands.iter().enumerate() {
         if sol.value(x_vars[i]) > 0.5 {
-            key_place.insert(cand.key.to_string(), (cand.row, cand.start_col, cand.w_u));
+            geom.key_placements.push(KeyPlacement {
+                key_name: cand.key.to_string(),
+                key_id: Some(cand.key),
+                row: cand.row,
+                start_col: cand.start_col,
+                width_u: cand.w_u,
+                placement_type: PlacementType::Optimized,
+                block_id: None,
+            });
         }
     }
-    let mut arrow_place = HashMap::new();
+
+    // 矢印キーの配置を追加
     for &arrow_key in &ARROW_KEYS {
         for (u, block) in blocks.iter().enumerate() {
             if sol.value(*m_vars.get(&(arrow_key, u)).unwrap()) > 0.5 {
-                arrow_place.insert(arrow_key.to_string(), block.id);
+                let start_col = block.id.bcol * 4; // 1u = 4 cells
+                geom.key_placements.push(KeyPlacement {
+                    key_name: arrow_key.to_string(),
+                    key_id: Some(arrow_key),
+                    row: block.id.row,
+                    start_col,
+                    width_u: 1.0,
+                    placement_type: PlacementType::Arrow,
+                    block_id: Some(block.id),
+                });
             }
         }
     }
-    let objective_ms = sol.eval(&objective_expr);
 
-    Ok(SolutionLayout {
-        objective_ms,
-        key_place,
-        arrow_place,
-    })
+    Ok(SolutionLayout { objective_ms })
 }
 
 // 内部関数はv1モジュールに移動しました

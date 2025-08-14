@@ -1,149 +1,14 @@
 use std::io::Write;
 
+use super::super::types::PlacementType;
 use super::super::types::*;
 use super::colors::{color_of, get_key_color};
 use super::svg_utils::html_encode;
 use crate::csv_reader::KeyFreq;
 use crate::error::KbOptError;
-use crate::optimize::{BlockId, SolutionLayout};
 
 // Constants for cell calculations
 const CELL_U: f32 = 0.25; // Each cell is 0.25u
-const ONE_U: f32 = 1.0; // 1u in terms of cell units
-
-// Convert u to number of cells
-fn cells_from_u(u: f32) -> usize {
-    (u / CELL_U).round() as usize
-}
-
-/// 最適化されたキーの描画
-pub fn render_optimized_keys<W: Write>(
-    w: &mut W,
-    geom: &Geometry,
-    solution: &SolutionLayout,
-    freqs: &KeyFreq,
-    opt: &super::layout_renderer::DebugRenderOptions,
-    to_px: &dyn Fn(f32, f32) -> (f32, f32),
-) -> Result<(), KbOptError> {
-    for (key_name, &(row, start_col, width_u)) in &solution.key_place {
-        // キーの位置とサイズを計算（固定キーと同じ座標系を使用）
-        let x_start_u = (start_col as f32) * CELL_U;
-        let y_u = row as f32 - 0.5; // 固定キーと同じY座標計算
-        let width_px = width_u * opt.scale_px_per_u;
-        let height_px = 1.0 * opt.scale_px_per_u; // 1u height
-
-        let (px_x, px_y) = to_px(x_start_u, y_u + 0.5);
-
-        // キーの背景色（頻度に基づく色分けまたは指の色）
-        let key_color = get_key_color(key_name, freqs);
-
-        // キーの矩形を描画
-        writeln!(
-            w,
-            r##"<rect x="{:.2}" y="{:.2}" width="{:.2}" height="{:.2}" fill="{}" stroke="#333" stroke-width="1"/>"##,
-            px_x,
-            px_y - height_px * 0.5,
-            width_px,
-            height_px,
-            key_color
-        )?;
-
-        // キーラベルを描画
-        if opt.show_key_labels {
-            let label_x = px_x + width_px * 0.5;
-            let label_y = px_y;
-
-            writeln!(
-                w,
-                r##"<text x="{:.2}" y="{:.2}" font-family="Arial, sans-serif" font-size="12.0px" text-anchor="middle" dominant-baseline="middle" fill="#000">{}</text>"##,
-                label_x,
-                label_y,
-                html_encode(key_name)
-            )?;
-        }
-
-        // 頻度を描画
-        if opt.show_key_frequencies {
-            let freq_x = px_x + width_px * 0.5;
-            let freq_y = px_y + 9.6;
-            let freq = freqs
-                .counts()
-                .iter()
-                .find(|(k, _)| k.to_string() == *key_name)
-                .map(|(_, &count)| count)
-                .unwrap_or(0);
-
-            writeln!(
-                w,
-                r##"<text x="{:.2}" y="{:.2}" font-family="Arial, sans-serif" font-size="8.4px" text-anchor="middle" dominant-baseline="middle" fill="#666">{}</text>"##,
-                freq_x, freq_y, freq
-            )?;
-        }
-    }
-    Ok(())
-}
-
-/// 矢印キーの描画
-pub fn render_arrow_keys<W: Write>(
-    w: &mut W,
-    geom: &Geometry,
-    solution: &SolutionLayout,
-    freqs: &KeyFreq,
-    opt: &super::layout_renderer::DebugRenderOptions,
-    to_px: &dyn Fn(f32, f32) -> (f32, f32),
-) -> Result<(), KbOptError> {
-    let arrow_symbols = [
-        ("ArrowUp", "↑"),
-        ("ArrowDown", "↓"),
-        ("ArrowLeft", "←"),
-        ("ArrowRight", "→"),
-    ];
-
-    for (arrow_key, symbol) in &arrow_symbols {
-        if let Some(&BlockId { row, bcol }) = solution.arrow_place.get(*arrow_key) {
-            let x_u = (bcol * cells_from_u(ONE_U)) as f32 * CELL_U;
-            let y_u = row as f32 - 0.5;
-            let (px_x, px_y) = to_px(x_u, y_u + 0.5);
-            let size_px = opt.scale_px_per_u;
-
-            writeln!(
-                w,
-                r##"<rect x="{:.2}" y="{:.2}" width="{:.2}" height="{:.2}" fill="#e0e0e0" stroke="#333" stroke-width="2"/>"##,
-                px_x,
-                px_y - size_px * 0.5,
-                size_px,
-                size_px
-            )?;
-
-            // 矢印記号を描画
-            writeln!(
-                w,
-                r##"<text x="{:.2}" y="{:.2}" font-family="Arial, sans-serif" font-size="16.0px" text-anchor="middle" dominant-baseline="middle" fill="#000">{}</text>"##,
-                px_x + size_px * 0.5,
-                px_y,
-                symbol
-            )?;
-
-            // 頻度を描画
-            if opt.show_key_frequencies {
-                let freq = freqs
-                    .counts()
-                    .iter()
-                    .find(|(k, _)| k.to_string() == *arrow_key)
-                    .map(|(_, &count)| count)
-                    .unwrap_or(0);
-                writeln!(
-                    w,
-                    r##"<text x="{:.2}" y="{:.2}" font-family="Arial, sans-serif" font-size="9.6px" text-anchor="middle" dominant-baseline="middle" fill="#666">{}</text>"##,
-                    px_x + size_px * 0.5,
-                    px_y + size_px * 0.28,
-                    freq
-                )?;
-            }
-        }
-    }
-    Ok(())
-}
 
 /// ホームポジションの描画
 pub fn render_home_positions<W: Write>(
@@ -230,5 +95,106 @@ pub fn render_qwerty_labels<W: Write>(
             )?;
         }
     }
+    Ok(())
+}
+
+/// Geometryから全キー配置を描画（固定キー、最適化キー、矢印キーを統一的に処理）
+pub fn render_all_keys_from_geometry<W: Write>(
+    w: &mut W,
+    geom: &Geometry,
+    freqs: &KeyFreq,
+    opt: &super::layout_renderer::DebugRenderOptions,
+    to_px: &dyn Fn(f32, f32) -> (f32, f32),
+) -> Result<(), KbOptError> {
+    // 全キー配置を統一的に描画
+    for key_placement in &geom.key_placements {
+        let x_start_u = (key_placement.start_col as f32) * CELL_U;
+        let y_u = key_placement.row as f32 - 0.5;
+        let width_px = key_placement.width_u * opt.scale_px_per_u;
+        let height_px = 1.0 * opt.scale_px_per_u;
+
+        let (px_x, px_y) = to_px(x_start_u, y_u + 0.5);
+
+        // キーの背景色とストローク（キータイプ別に設定）
+        let (key_color, stroke_width) = match key_placement.placement_type {
+            PlacementType::Fixed => ("#f0f0f0", "1"), // 淡いグレー
+            PlacementType::Optimized => (get_key_color(&key_placement.key_name, freqs), "1"), // 頻度ベース
+            PlacementType::Arrow => ("#e0e0e0", "2"), // 矢印キー用の色とストローク
+        };
+
+        // キーの矩形を描画
+        writeln!(
+            w,
+            r##"<rect x="{:.2}" y="{:.2}" width="{:.2}" height="{:.2}" fill="{}" stroke="#333" stroke-width="{}"/>"##,
+            px_x,
+            px_y - height_px * 0.5,
+            width_px,
+            height_px,
+            key_color,
+            stroke_width
+        )?;
+
+        // ラベルの描画（矢印キーは特別な記号を使用）
+        if opt.show_key_labels {
+            let label_x = px_x + width_px * 0.5;
+            let label_y = px_y;
+
+            let (label_text, font_size) = match key_placement.placement_type {
+                PlacementType::Arrow => {
+                    // 矢印キー用の記号
+                    let symbol = match key_placement.key_name.as_str() {
+                        "ArrowUp" => "↑",
+                        "ArrowDown" => "↓",
+                        "ArrowLeft" => "←",
+                        "ArrowRight" => "→",
+                        _ => "?",
+                    };
+                    (symbol.to_string(), "16.0px")
+                }
+                _ => (html_encode(&key_placement.key_name), "12.0px"),
+            };
+
+            writeln!(
+                w,
+                r##"<text x="{:.2}" y="{:.2}" font-family="Arial, sans-serif" font-size="{}" text-anchor="middle" dominant-baseline="middle" fill="#000">{}</text>"##,
+                label_x, label_y, font_size, label_text
+            )?;
+        }
+
+        // 頻度を描画（最適化キーと矢印キーのみ）
+        if opt.show_key_frequencies
+            && matches!(
+                key_placement.placement_type,
+                PlacementType::Optimized | PlacementType::Arrow
+            )
+        {
+            let freq_x = px_x + width_px * 0.5;
+            let freq_y = px_y
+                + match key_placement.placement_type {
+                    PlacementType::Arrow => height_px * 0.28, // 矢印キー用のオフセット
+                    _ => 9.6,                                 // 通常キー用のオフセット
+                };
+
+            // key_nameから頻度を取得
+            let freq = freqs
+                .counts()
+                .iter()
+                .find(|(k, _)| k.to_string() == key_placement.key_name)
+                .map(|(_, &count)| count)
+                .unwrap_or(0);
+
+            let font_size = match key_placement.placement_type {
+                PlacementType::Arrow => "9.6px",
+                _ => "8.4px",
+            };
+
+            writeln!(
+                w,
+                r##"<text x="{:.2}" y="{:.2}" font-family="Arial, sans-serif" font-size="{}" text-anchor="middle" dominant-baseline="middle" fill="#666">{}</text>"##,
+                freq_x, freq_y, font_size, freq
+            )?;
+        }
+    }
+
     Ok(())
 }
