@@ -19,12 +19,15 @@ pub const EXPECTED_COUNT_HEADER: &str = "Count"; // Count column header
 /// Finger region (cell unit)
 pub const FINGER_X_BOUNDARY: [usize; 7] = [24, 28, 32, 40, 48, 52, 56];
 
+/// Visualization
+pub const MARGIN: f32 = 24.0; // margin [px]
+
 /// calculate cell start position [cell] to [mm]
 /// - row: cell unit
 /// - col: cell unit
 #[inline]
 pub fn cell_to_cordinate(row: usize, col: usize) -> (f32, f32) {
-    let x = ((col as isize - (MAX_COL_CELLS / 2) as isize) as f32 / U2CELL as f32) * U2MM as f32;
+    let x = (col as f32 / U2CELL as f32) * U2MM as f32;
     let y = (row as f32 / U2CELL as f32) * U2MM as f32;
     (x, y)
 }

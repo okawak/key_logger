@@ -10,7 +10,7 @@ use imageproc::drawing::{draw_filled_rect_mut, draw_text_mut};
 use imageproc::rect::Rect;
 
 use super::types::*;
-use crate::constants::U2PX;
+use crate::constants::{MARGIN, U2PX};
 use crate::csv_reader::KeyFreq;
 use crate::error::Result;
 
@@ -19,14 +19,13 @@ pub struct Renderer {
     pub image: RgbImage,
     pub width: u32,
     pub height: u32,
-    pub margin_px: f32, // margin to keyboard edge
     pub font: FontVec,
     pub render_finger_bg: bool,
 }
 
 impl Renderer {
     /// 新しいレンダラーを作成
-    pub fn new(width: u32, height: u32, margin_px: f32, render_finger_bg: bool) -> Result<Self> {
+    pub fn new(width: u32, height: u32, render_finger_bg: bool) -> Result<Self> {
         let image = ImageBuffer::from_pixel(width, height, Colors::WHITE); // 白背景
 
         // システムフォントを読み込み
@@ -36,7 +35,6 @@ impl Renderer {
             image,
             width,
             height,
-            margin_px,
             font,
             render_finger_bg,
         })
@@ -65,8 +63,8 @@ impl Renderer {
     /// 座標変換関数を生成
     pub fn create_coord_transform(&self, y_min_u: f32) -> impl Fn(f32, f32) -> (f32, f32) + '_ {
         move |u_x: f32, u_y: f32| -> (f32, f32) {
-            let px_x = self.margin_px + u_x * U2PX;
-            let px_y = self.margin_px + (u_y - y_min_u) * U2PX;
+            let px_x = MARGIN + u_x * U2PX;
+            let px_y = MARGIN + (u_y - y_min_u) * U2PX;
             (px_x, px_y)
         }
     }
@@ -121,16 +119,13 @@ impl Colors {
     pub const ORANGE: Rgb<u8> = Rgb([255, 165, 0]);
 }
 
-/// 最適化レイアウトを描画
+/// Geometryよりレイアウトを描画
 pub fn render_layout<P: AsRef<Path>>(
     geom: &Geometry,
     freqs: &KeyFreq,
     output_path: P,
     render_finger_bg: bool,
 ) -> Result<()> {
-    // キャンバスサイズの計算
-    let margin_px = 24.0;
-
     // Y軸の範囲を取得
     let mut y_min_u = f32::INFINITY;
     let mut y_max_u = f32::NEG_INFINITY;
@@ -146,17 +141,17 @@ pub fn render_layout<P: AsRef<Path>>(
     let geom_h_px = (y_max_u - y_min_u + 1.0) * U2PX;
     let legend_width_px = 320.0; // 凡例エリアを拡大
 
-    let width = (geom_w_px + legend_width_px + margin_px * 3.0) as u32;
-    let height = (geom_h_px + margin_px * 2.0) as u32;
+    let width = (geom_w_px + legend_width_px + MARGIN * 3.0) as u32;
+    let height = (geom_h_px + MARGIN * 2.0) as u32;
 
     // レンダラーを初期化
-    let mut renderer = Renderer::new(width, height, margin_px, render_finger_bg)?;
+    let mut renderer = Renderer::new(width, height, render_finger_bg)?;
 
     // Geometryから統一的に描画
-    render_from_geometry(&mut renderer, geom, freqs, margin_px, y_min_u)?;
+    render_from_geometry(&mut renderer, geom, freqs, y_min_u)?;
 
     // 凡例を描画
-    render_legend(&mut renderer, geom, freqs, geom_w_px + margin_px * 2.0, 0.0)?;
+    render_legend(&mut renderer, geom, freqs, geom_w_px + MARGIN * 2.0, 0.0)?;
 
     // 画像を保存
     renderer.save(output_path)?;
@@ -169,17 +164,16 @@ fn render_from_geometry(
     renderer: &mut Renderer,
     geom: &Geometry,
     freqs: &KeyFreq,
-    margin_px: f32,
     y_min_u: f32,
 ) -> Result<()> {
     let to_px = |u_x: f32, u_y: f32| -> (f32, f32) {
-        let px_x = margin_px + u_x * U2PX;
-        let px_y = margin_px + (u_y - y_min_u) * U2PX;
+        let px_x = MARGIN + u_x * U2PX;
+        let px_y = MARGIN + (u_y - y_min_u) * U2PX;
         (px_x, px_y)
     };
 
     // 1. 指領域（cells）を描画
-    render_finger_regions(renderer, geom, margin_px, y_min_u)?;
+    render_finger_regions(renderer, geom, y_min_u)?;
 
     // 2. 全てのキー（key_placements）を描画
     render_all_keys(renderer, geom, freqs, &to_px)?;
@@ -194,15 +188,10 @@ fn render_from_geometry(
 }
 
 /// 指領域を描画
-fn render_finger_regions(
-    renderer: &mut Renderer,
-    geom: &Geometry,
-    margin_px: f32,
-    y_min_u: f32,
-) -> Result<()> {
+fn render_finger_regions(renderer: &mut Renderer, geom: &Geometry, y_min_u: f32) -> Result<()> {
     let to_px = |u_x: f32, u_y: f32| -> (f32, f32) {
-        let px_x = margin_px + u_x * U2PX;
-        let px_y = margin_px + (u_y - y_min_u) * U2PX;
+        let px_x = MARGIN + u_x * U2PX;
+        let px_y = MARGIN + (u_y - y_min_u) * U2PX;
         (px_x, px_y)
     };
 
@@ -245,6 +234,7 @@ fn render_all_keys(
         let (px_x, px_y) = to_px(key_placement.x, key_placement.y);
         let width_px = key_placement.width_u * U2PX;
         let height_px = U2PX; // 1u height
+        
 
         // 配置タイプによって色分け
         let key_color = match key_placement.placement_type {

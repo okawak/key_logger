@@ -39,8 +39,6 @@ impl Default for SolveOptions {
     }
 }
 
-// これらの構造体とconst、関数はv1モジュールに移動しました
-
 /// 解の保持
 #[derive(Debug, Clone)]
 pub struct SolutionLayout {
@@ -142,9 +140,9 @@ pub fn solve_layout(
             .get(&finger)
             .cloned()
             .unwrap_or((blk.center.0, blk.center.1));
-        let d_u = euclid_u(blk.center, home) as f64 * U2MM;
+        let d_mm = euclid_u(blk.center, home) as f64 * U2MM;
         let w_mm = 1.0f64 * U2MM;
-        let t_ms = opt.a_ms + opt.b_ms * ((d_u / w_mm + 1.0).log2());
+        let t_ms = opt.a_ms + opt.b_ms * ((d_mm / w_mm + 1.0).log2());
         for &arrow_key in &ARROW_KEYS {
             let p_a = probabilities.get(&arrow_key).copied().unwrap_or(0.0);
             if p_a > 0.0 {
@@ -310,5 +308,3 @@ pub fn solve_layout(
 
     Ok(SolutionLayout { objective_ms })
 }
-
-// 内部関数はv1モジュールに移動しました

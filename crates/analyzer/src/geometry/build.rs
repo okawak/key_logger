@@ -15,11 +15,18 @@ impl Geometry {
         for row in 0..MAX_ROW_CELLS {
             let mut row_cells = Vec::with_capacity(MAX_COL_CELLS);
             for col in 0..MAX_COL_CELLS {
-                let finger = if row == 0 {
-                    if col as f32 <= MAX_COL_CELLS as f32 / 2.0 {
-                        Finger::LThumb
+                let finger = if row < 4 {  // 一番下1u (4 cells) の範囲
+                    // 小指のx領域は親指領域でも小指が担当
+                    let finger_by_x = finger_from_x(col);
+                    if matches!(finger_by_x, Finger::LPinky | Finger::RPinky) {
+                        finger_by_x
                     } else {
-                        Finger::RThumb
+                        // 小指以外は親指が担当
+                        if col <= MAX_COL_CELLS / 2 {
+                            Finger::LThumb
+                        } else {
+                            Finger::RThumb
+                        }
                     }
                 } else {
                     finger_from_x(col)

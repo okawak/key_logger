@@ -21,6 +21,7 @@ Thumbs.db
 # Output files
 *.csv
 *.svg
+*.png
 
 # Local development
 .env

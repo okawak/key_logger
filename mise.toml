@@ -1,0 +1,3 @@
+[tasks.clean]
+description = "clean output figures"
+run = 'rm -rf figs'
