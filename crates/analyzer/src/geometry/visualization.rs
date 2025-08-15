@@ -300,7 +300,7 @@ fn render_all_keys(renderer: &mut Renderer, geom: &Geometry, freqs: &KeyFreq) ->
         renderer.draw_text(text_x, text_y, display_text, FONT_SIZE, text_color);
 
         // 頻度情報を描画（最適化されたキーのみ）
-        if matches!(key_placement.placement_type, PlacementType::Optimized)
+        if key_placement.placement_type == PlacementType::Optimized
             && let Some(key_id) = key_placement.key_id
         {
             let count = freqs.get_count(key_id);

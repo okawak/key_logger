@@ -28,7 +28,7 @@ pub const FONT_SIZE: f32 = 16.0; // font size [px]
 /// - row: u unit
 /// - col: cell unit
 #[inline]
-pub fn cell_to_cordinate(row: usize, col: usize) -> (f32, f32) {
+pub fn cell_to_coordinate(row: usize, col: usize) -> (f32, f32) {
     let x = (col as f32 / U2CELL as f32) * U2MM as f32;
     let y = row as f32 * U2MM as f32;
     (x, y)
@@ -40,7 +40,7 @@ pub fn cell_to_cordinate(row: usize, col: usize) -> (f32, f32) {
 /// - width: \[u\]
 #[inline]
 pub fn cell_to_key_center(row: usize, col: usize, width: f32) -> (f32, f32) {
-    let (mut x, mut y) = cell_to_cordinate(row, col);
+    let (mut x, mut y) = cell_to_coordinate(row, col);
     x += width / 2.0 * U2MM as f32;
     y += 0.5 * U2MM as f32; // キーの中心位置（0.5u offset for center）
     (x, y)
