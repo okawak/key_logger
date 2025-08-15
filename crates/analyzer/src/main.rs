@@ -1,23 +1,24 @@
 use anyhow::Result;
 use std::path::PathBuf;
 
+use analyzer::csv_reader::create_fallback_data;
+use analyzer::csv_reader::read_key_freq_from_directory;
 use analyzer::geometry::{Geometry, GeometryName};
 use analyzer::keys::ParseOptions;
-use analyzer::optimize::{KeyFreqs, SolveOptions, solve_layout};
-use analyzer::{KeyFreq, read_key_freq_from_directory, save_optimized_layout_to_figs};
+use analyzer::optimize::{SolveOptions, solve_layout};
+use analyzer::save_layout;
 
 fn main() -> Result<()> {
-    // 幾何
-    let geom = Geometry::build(GeometryName::RowStagger)?;
+    let include_fkeys = false;
 
-    // CSVディレクトリから頻度データを読み込み
+    // geometry (row staggered, ortho)
+    let mut geom = Geometry::build(GeometryName::RowStagger)?;
+
+    // path to CSV file directory
     let csv_dir = PathBuf::from("csv");
     let parse_options = ParseOptions {
-        include_fkeys: false,
-        fkeys_max: 12,
-        include_navigation: false,
-        include_numpad: false,
-        strict_unknown_keys: false,
+        include_fkeys,
+        ..Default::default()
     };
 
     let key_freq = match read_key_freq_from_directory(&csv_dir, &parse_options) {
@@ -38,78 +39,68 @@ fn main() -> Result<()> {
             );
             eprintln!("Using fallback test data instead.");
 
-            // フォールバック: テストデータを使用
+            // fallback
             create_fallback_data()
         }
     };
 
-    // KeyFreqをオプティマイザー形式に変換
-    let freqs: KeyFreqs = key_freq.to_optimizer_format();
-
-    // ソルブ設定
+    // solver setting (fitts' low)
     let opt = SolveOptions {
-        include_function_keys: false,
+        include_fkeys,
         a_ms: 0.0, // v1：a=0
         b_ms: 1.0, // v1：b=1
-        u2mm: 19.0,
-        lambda_width: 0.0,
     };
 
-    if freqs.is_empty() {
+    if key_freq.is_empty() {
         eprintln!("Error: No key frequency data available for optimization.");
         return Ok(());
     }
 
-    let sol = solve_layout(&geom, &freqs, &opt)?;
-    println!("objective(ms): {:.3}", sol.objective_ms);
-    for (k, (r, c, w)) in sol.key_place.iter() {
-        println!("key {:<12} -> row {}, col {}, w {:.2}u", k, r, c, w);
+    println!(
+        "Before optimization: {} keys in key_placements",
+        geom.key_placements.len()
+    );
+    for (key_name, key_placement) in &geom.key_placements {
+        println!(
+            "  Before: {} -> {:?} at ({:.1}, {:.1})",
+            key_name, key_placement.placement_type, key_placement.x, key_placement.y
+        );
     }
-    for (k, bid) in sol.arrow_place.iter() {
-        println!("arrow {:<12} -> row {}, bcol {}", k, bid.row, bid.bcol);
+
+    let sol = solve_layout(&mut geom, &key_freq, &opt)?;
+
+    println!("objective(ms): {:.3}", sol.objective_ms);
+    println!(
+        "After optimization: {} keys in key_placements",
+        geom.key_placements.len()
+    );
+
+    // キー配置情報をGeometryから出力
+    for (key_name, key_placement) in &geom.key_placements {
+        match key_placement.placement_type {
+            analyzer::geometry::types::PlacementType::Optimized => {
+                println!(
+                    "key {:<12} -> x {:.1}, y {:.1}, w {:.2}u",
+                    key_name, key_placement.x, key_placement.y, key_placement.width_u
+                );
+            }
+            analyzer::geometry::types::PlacementType::Arrow => {
+                if let Some(block_id) = key_placement.block_id {
+                    println!(
+                        "arrow {:<12} -> x {:.1}, y {:.1}, row_u {}, col_u {}",
+                        key_name, key_placement.x, key_placement.y, block_id.row_u, block_id.col_u
+                    );
+                }
+            }
+            _ => {} // 固定キーは出力しない
+        }
     }
 
     // figsディレクトリに最適化結果を画像として保存
-    match save_optimized_layout_to_figs(&geom, &sol, &freqs) {
+    match save_layout(&geom, &key_freq, false, "optimized") {
         Ok(path) => println!("Optimized layout saved to: {}", path.display()),
         Err(e) => eprintln!("Failed to save layout visualization: {}", e),
     }
 
     Ok(())
-}
-
-/// フォールバック用のテストデータを作成
-fn create_fallback_data() -> KeyFreq {
-    use analyzer::keys::KeyId;
-    use std::collections::HashMap;
-
-    let mut counts = HashMap::new();
-
-    // 数字キー
-    for i in 0..=9 {
-        counts.insert(KeyId::Digit(i), 100);
-    }
-
-    // 修飾キー
-    counts.insert(KeyId::Tab, 100);
-    counts.insert(KeyId::Escape, 100);
-    counts.insert(KeyId::ShiftL, 100);
-    counts.insert(KeyId::ShiftR, 100);
-    counts.insert(KeyId::CtrlL, 100);
-    counts.insert(KeyId::CtrlR, 100);
-    counts.insert(KeyId::AltL, 100);
-    counts.insert(KeyId::AltR, 100);
-    counts.insert(KeyId::MetaL, 100);
-    counts.insert(KeyId::MetaR, 100);
-    counts.insert(KeyId::CapsLock, 100);
-    counts.insert(KeyId::Delete, 100);
-    counts.insert(KeyId::Backspace, 100);
-
-    // 矢印キー
-    counts.insert(KeyId::Arrow(analyzer::keys::ArrowKey::Up), 1000);
-    counts.insert(KeyId::Arrow(analyzer::keys::ArrowKey::Down), 1000);
-    counts.insert(KeyId::Arrow(analyzer::keys::ArrowKey::Left), 1000);
-    counts.insert(KeyId::Arrow(analyzer::keys::ArrowKey::Right), 1000);
-
-    KeyFreq::from_counts(counts)
 }

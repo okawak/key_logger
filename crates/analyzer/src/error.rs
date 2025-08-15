@@ -27,6 +27,21 @@ pub enum KbOptError {
         source: std::num::ParseIntError,
     },
 
+    #[error(transparent)]
+    Image(#[from] image::ImageError),
+
+    #[error("Optimization solver error: {0}")]
+    SolverError(String),
+
+    #[error("Model construction error: {message}")]
+    ModelError { message: String },
+
+    #[error("Invalid geometry: {message}")]
+    GeometryError { message: String },
+
+    #[error("Key placement error: {message}")]
+    PlacementError { message: String },
+
     #[error("Other error: {0}")]
     Other(String),
 }

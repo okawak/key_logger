@@ -1,36 +1,21 @@
-use analyzer::geometry::{
-    DebugRenderOptions, Geometry, GeometryName, Policy, Precompute, render_svg_debug,
-};
+use analyzer::csv_reader::KeyFreq;
+use analyzer::geometry::{Geometry, GeometryName, save_layout};
 use anyhow::Result;
-use std::fs;
 
 fn main() -> Result<()> {
-    // figsディレクトリが存在しない場合は作成
-    fs::create_dir_all("figs")?;
     let geometries = [
         (GeometryName::RowStagger, "row_stagger"),
-        (GeometryName::ColStagger, "col_stagger"),
         (GeometryName::Ortho, "ortho"),
     ];
 
-    let policy = Policy::default();
-    let opt = DebugRenderOptions {
-        legend_width_px: 320.0,
-        home_offset_px: (0.0, -10.0),
-        ..Default::default()
-    };
-
     for (geometry_name, file_prefix) in &geometries {
         let geom = Geometry::build(*geometry_name)?;
-        let precomp = Precompute {
-            key_cands: std::collections::HashMap::new(),
-            arrow_cells: Vec::new(),
-            arrow_edges: Vec::new(),
-        };
-        let output_path = format!("figs/{}_geometry_debug.svg", file_prefix);
 
-        render_svg_debug(&geom, &precomp, &policy, &output_path, &opt)?;
-        println!("wrote {}", output_path);
+        // 空の頻度データ（表示テスト用）
+        let key_freq = KeyFreq::new();
+
+        let output_path = save_layout(&geom, &key_freq, true, file_prefix)?;
+        println!("wrote {}", output_path.display());
     }
 
     println!("All geometry visualizations generated in figs/ directory");
