@@ -315,11 +315,7 @@ fn apply_regular_key_placements(
         let var_value = sol.value(x_vars[i]);
 
         if var_value > SOLUTION_THRESHOLD {
-            let (x, y) = crate::constants::cell_to_key_center(
-                cand.row,
-                cand.start_col,
-                cand.w_u,
-            );
+            let (x, y) = crate::constants::cell_to_key_center(cand.row, cand.start_col, cand.w_u);
 
             geom.key_placements.insert(
                 cand.key.to_string(),
@@ -354,11 +350,7 @@ fn apply_arrow_key_placements(
 
             if var_value > SOLUTION_THRESHOLD {
                 let start_col = block.id.col_u * crate::constants::U2CELL; // 1u = 4 cells
-                let (x, y) = crate::constants::cell_to_key_center(
-                    block.id.row_u,
-                    start_col,
-                    1.0,
-                );
+                let (x, y) = crate::constants::cell_to_key_center(block.id.row_u, start_col, 1.0);
 
                 geom.key_placements.insert(
                     arrow_key.to_string(),
