@@ -14,11 +14,11 @@ impl Geometry {
         let center_col = start.col + ((width_u * U2CELL as f32).round() as usize) / 2;
         let x = center_col as f32 / U2CELL as f32;
         let y = row as f32 / U2CELL as f32;
-        
+
         // build済みのcell情報から指を取得
         let finger = self.cells[row][center_col].finger;
         let (hx, hy) = self.homes[&finger];
-        
+
         let dx = (x - hx) as f64;
         let dy = (y - hy) as f64;
         (dx * dx + dy * dy).sqrt()

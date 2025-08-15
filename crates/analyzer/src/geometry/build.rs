@@ -5,17 +5,18 @@ use super::{
     types::*,
     zoning::finger_from_x,
 };
-use crate::constants::{MAX_COL_CELLS, MAX_ROW_CELLS, U2CELL, cell_to_key_center};
+use crate::constants::{MAX_COL_CELLS, MAX_ROW, U2CELL, cell_to_key_center};
 use crate::error::Result;
 
 /// Geometry construction: 0.25u grid, fixed letters reservation, homes
 impl Geometry {
     pub fn build(name: GeometryName) -> Result<Self> {
-        let mut cells: Vec<Vec<Cell>> = Vec::with_capacity(MAX_ROW_CELLS);
-        for row in 0..MAX_ROW_CELLS {
+        let mut cells: Vec<Vec<Cell>> = Vec::with_capacity(MAX_ROW);
+        for row in 0..MAX_ROW {
             let mut row_cells = Vec::with_capacity(MAX_COL_CELLS);
             for col in 0..MAX_COL_CELLS {
-                let finger = if row < 4 {  // 一番下1u (4 cells) の範囲
+                let finger = if row == 0 {
+                    // 一番下の行
                     // 小指のx領域は親指領域でも小指が担当
                     let finger_by_x = finger_from_x(col);
                     if matches!(finger_by_x, Finger::LPinky | Finger::RPinky) {
@@ -74,9 +75,8 @@ impl Geometry {
         // 1u key
         for (col_idx, name) in names.iter().enumerate() {
             // cell unit
-            let row = row_idx * U2CELL;
             let col = start_cell + col_idx * U2CELL;
-            let (x, y) = cell_to_key_center(row, col, 1.0);
+            let (x, y) = cell_to_key_center(row_idx, col, 1.0);
 
             self.key_placements.insert(
                 name.to_string(),
@@ -90,11 +90,9 @@ impl Geometry {
                 },
             );
 
-            // 1 x 1u (4 x 4 cell) を確保
+            // 1 x 1u (4 cell) を確保
             for i in 0..U2CELL {
-                for j in 0..U2CELL {
-                    self.cells[row + i][col + j].occupied = true;
-                }
+                self.cells[row_idx][col + i].occupied = true;
             }
         }
     }

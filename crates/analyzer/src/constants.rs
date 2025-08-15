@@ -1,5 +1,5 @@
 /// Key layout settings
-pub const MAX_ROW_CELLS: usize = 24; // (max) 6 rows [u] x 4 = 24 [cell]
+pub const MAX_ROW: usize = 6; // (max) [u] (only suit for row stagger/otho layout)
 pub const MAX_COL_CELLS: usize = 80; // (max) 20 [u] x 4 = 80 [cell]
 
 /// Use key setting
@@ -25,17 +25,17 @@ pub const LEGEND_WIDTH: f32 = 320.0; // legend width [px]
 pub const FONT_SIZE: f32 = 16.0; // font size [px]
 
 /// calculate cell start position \[cell\] to \[mm\]
-/// - row: cell unit
+/// - row: u unit
 /// - col: cell unit
 #[inline]
 pub fn cell_to_cordinate(row: usize, col: usize) -> (f32, f32) {
     let x = (col as f32 / U2CELL as f32) * U2MM as f32;
-    let y = (row as f32 / U2CELL as f32) * U2MM as f32;
+    let y = row as f32 * U2MM as f32;
     (x, y)
 }
 
 /// calculate center key position \[cell\] to \[mm\] (assume vertical 1u size)
-/// - row: cell unit
+/// - row: u unit
 /// - col: cell unit
 /// - width: \[u\]
 #[inline]

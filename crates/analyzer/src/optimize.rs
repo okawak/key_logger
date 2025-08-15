@@ -8,7 +8,7 @@ use crate::error::KbOptError;
 use crate::geometry::{
     Geometry,
     fitts::euclid_u,
-    precompute::Precompute,
+    sets::OptimizationSets,
     types::{CellId, KeyPlacement, PlacementType},
 };
 use crate::keys::{KeyId, ParseOptions, all_movable_keys};
@@ -20,6 +20,24 @@ use v1::{
     build_candidates_from_precompute, generate_v1_arrow_region, generate_v1_key_candidates,
     is_arrow,
 };
+
+/// 最適化モデルの定数
+mod optimization_constants {
+    /// 矢印キーの必要ブロック数
+    pub const REQUIRED_ARROW_BLOCKS: usize = 4;
+    pub const REQUIRED_ARROW_BLOCKS_F64: f64 = 4.0;
+
+    /// フロー根の数（矢印キー連結制約用）
+    pub const FLOW_ROOTS_F64: f64 = 1.0;
+
+    /// ブロックあたりの最大フロー容量
+    pub const MAX_FLOW_PER_BLOCK: f64 = 3.0;
+
+    /// 解の妥当性判定の閾値
+    pub const SOLUTION_THRESHOLD: f64 = 0.5;
+}
+
+use optimization_constants::*;
 
 /// ソルバ設定・Fitts 係数など
 #[derive(Debug, Clone)]
@@ -66,18 +84,33 @@ pub fn solve_layout(
     let key_cands = generate_v1_key_candidates(geom, &movable_vec);
     let (arrow_cells, arrow_edges) = generate_v1_arrow_region(geom);
 
-    let precompute = Precompute {
+    let optimization_sets = OptimizationSets {
         key_cands,
         arrow_cells,
         arrow_edges,
     };
 
-    // 3) Precomputeから通常キーの候補を変換
-    let cands = build_candidates_from_precompute(geom, &movable, &precompute, opt);
+    // 3) OptimizationSetsから通常キーの候補を変換
+    let cands = build_candidates_from_precompute(geom, &movable, &optimization_sets, opt);
+    if cands.is_empty() {
+        return Err(KbOptError::ModelError {
+            message: "No valid key placement candidates found".to_string(),
+        });
+    }
 
-    // 4) Precomputeから矢印用ブロックを変換
-    let (blocks, _block_index) = build_blocks_from_precompute(geom, &precompute);
-    let adj_edges = build_adjacency_from_precompute(&blocks, &precompute);
+    // 4) OptimizationSetsから矢印用ブロックを変換
+    let (blocks, _block_index) = build_blocks_from_precompute(geom, &optimization_sets);
+    if blocks.len() < REQUIRED_ARROW_BLOCKS {
+        return Err(KbOptError::ModelError {
+            message: format!(
+                "Insufficient arrow blocks: found {}, need at least {}",
+                blocks.len(),
+                REQUIRED_ARROW_BLOCKS
+            ),
+        });
+    }
+
+    let adj_edges = build_adjacency_from_precompute(&blocks, &optimization_sets);
 
     // 4) モデルを立てる
     let mut vars = ProblemVariables::new();
@@ -121,16 +154,15 @@ pub fn solve_layout(
 
     // 正規化された確率値を取得
     let probabilities = freqs.probabilities();
-    println!("Probabilities: {:?}", probabilities);
 
     // 目的関数: Σ p_k·T^g(j,w)·x^g_{k,j,w} + Σ p_a·T^g_arrow(u)·m^g_{a,u}
     let mut obj = Expression::from(0.0);
     // 通常キー項: Σ_{k∈K} Σ_{j∈I^g_k} Σ_{w∈W_k} p_k·T^g(j,w)·x^g_{k,j,w}
     for (i, cand) in cands.iter().enumerate() {
         let p_k = probabilities.get(&cand.key).copied().unwrap_or(0.0);
-        if p_k > 0.0 {
-            obj += p_k * cand.cost_ms * x_vars[i];
-        }
+        // 頻度が0でも小さな値（1e-6）を設定して目的関数に含める
+        let effective_p_k = if p_k > 0.0 { p_k } else { 1e-6 };
+        obj += effective_p_k * cand.cost_ms * x_vars[i];
     }
     // 矢印キー項: Σ_{a∈A} Σ_{u∈U^g} p_a·T^g_arrow(u)·m^g_{a,u}
     for (u, blk) in blocks.iter().enumerate() {
@@ -146,10 +178,10 @@ pub fn solve_layout(
         let t_ms = opt.a_ms + opt.b_ms * ((d_mm / w_mm + 1.0).log2());
         for &arrow_key in &ARROW_KEYS {
             let p_a = probabilities.get(&arrow_key).copied().unwrap_or(0.0);
-            if p_a > 0.0 {
-                let m_au = m_vars.get(&(arrow_key, u)).unwrap();
-                obj += (p_a * t_ms) * *m_au;
-            }
+            // 頻度が0でも小さな値（1e-6）を設定して目的関数に含める
+            let effective_p_a = if p_a > 0.0 { p_a } else { 1e-6 };
+            let m_au = m_vars.get(&(arrow_key, u)).unwrap();
+            obj += (effective_p_a * t_ms) * *m_au;
         }
     }
 
@@ -221,14 +253,14 @@ pub fn solve_layout(
             .sum();
         model = model.with(sum_a << a_vars[u]);
     }
-    // (v) 矢印キー総数制約: Σ_{u∈U_g} a^g_u = 4
+    // (v) 矢印キー総数制約: Σ_{u∈U_g} a^g_u = REQUIRED_ARROW_BLOCKS
     let sum_a_total: Expression = (0..blocks.len()).map(|u| a_vars[u]).sum();
-    model = model.with(sum_a_total.eq(4));
+    model = model.with(sum_a_total.eq(REQUIRED_ARROW_BLOCKS_F64));
 
     // (vi) 矢印キー連結制約（フロー保存）
-    // フロー根一意性: Σ_{u∈U_g} r^g_u = 1
+    // フロー根一意性: Σ_{u∈U_g} r^g_u = FLOW_ROOTS
     let sum_r: Expression = (0..blocks.len()).map(|u| r_vars[u]).sum();
-    model = model.with(sum_r.eq(1));
+    model = model.with(sum_r.eq(FLOW_ROOTS_F64));
 
     // 出入辺リスト
     let mut in_edges: Vec<Vec<usize>> = vec![Vec::new(); blocks.len()];
@@ -241,17 +273,18 @@ pub fn solve_layout(
     for u in 0..blocks.len() {
         let sum_in: Expression = in_edges[u].iter().map(|&ei| f_vars[ei]).sum();
         let sum_out: Expression = out_edges[u].iter().map(|&ei| f_vars[ei]).sum();
-        model = model.with((sum_in - sum_out).eq(a_vars[u] - 4 * r_vars[u]));
+        model =
+            model.with((sum_in - sum_out).eq(a_vars[u] - REQUIRED_ARROW_BLOCKS_F64 * r_vars[u]));
     }
-    // フロー容量制約: 0 ≤ f^g_{(u→v)} ≤ 3a^g_u ∀(u→v)∈E_g
+    // フロー容量制約: 0 ≤ f^g_{(u→v)} ≤ MAX_FLOW_PER_BLOCK*a^g_u ∀(u→v)∈E_g
     for (e_idx, e) in edges.iter().enumerate() {
-        model = model.with(f_vars[e_idx] << (3.0 * a_vars[e.from]));
+        model = model.with(f_vars[e_idx] << (MAX_FLOW_PER_BLOCK * a_vars[e.from]));
     }
 
     // 6) 求解
-    let sol = model
-        .solve()
-        .map_err(|e| KbOptError::Other(e.to_string()))?;
+    let sol = model.solve().map_err(|e| {
+        KbOptError::SolverError(format!("Failed to solve optimization model: {}", e))
+    })?;
 
     // 7) 解の復元 - 解の情報を直接Geometryに適用
     let objective_ms = sol.eval(&objective_expr);
@@ -261,13 +294,33 @@ pub fn solve_layout(
         .retain(|_, p| p.placement_type == PlacementType::Fixed);
 
     // 通常キーの配置を追加
+    let _regular_keys_placed = apply_regular_key_placements(geom, &sol, &x_vars, &cands);
+
+    // 矢印キーの配置を追加
+    let _arrow_keys_placed = apply_arrow_key_placements(geom, &sol, &m_vars, &blocks);
+
+    Ok(SolutionLayout { objective_ms })
+}
+
+/// 通常キーの配置を適用
+fn apply_regular_key_placements(
+    geom: &mut Geometry,
+    sol: &dyn good_lp::Solution,
+    x_vars: &[Variable],
+    cands: &[v1::Cand],
+) -> usize {
+    let mut placed = 0;
+
     for (i, cand) in cands.iter().enumerate() {
-        if sol.value(x_vars[i]) > 0.5 {
+        let var_value = sol.value(x_vars[i]);
+
+        if var_value > SOLUTION_THRESHOLD {
             let (x, y) = crate::constants::cell_to_key_center(
-                cand.row * crate::constants::U2CELL,
+                cand.row,
                 cand.start_col,
                 cand.w_u,
             );
+
             geom.key_placements.insert(
                 cand.key.to_string(),
                 KeyPlacement {
@@ -279,19 +332,34 @@ pub fn solve_layout(
                     block_id: None,
                 },
             );
+            placed += 1;
         }
     }
 
-    // 矢印キーの配置を追加
+    placed
+}
+
+/// 矢印キーの配置を適用
+fn apply_arrow_key_placements(
+    geom: &mut Geometry,
+    sol: &dyn good_lp::Solution,
+    m_vars: &HashMap<(KeyId, usize), Variable>,
+    blocks: &[v1::Block],
+) -> usize {
+    let mut placed = 0;
+
     for &arrow_key in &ARROW_KEYS {
         for (u, block) in blocks.iter().enumerate() {
-            if sol.value(*m_vars.get(&(arrow_key, u)).unwrap()) > 0.5 {
-                let start_col = block.id.col_u * 4; // 1u = 4 cells
+            let var_value = sol.value(*m_vars.get(&(arrow_key, u)).unwrap());
+
+            if var_value > SOLUTION_THRESHOLD {
+                let start_col = block.id.col_u * crate::constants::U2CELL; // 1u = 4 cells
                 let (x, y) = crate::constants::cell_to_key_center(
-                    block.id.row_u * crate::constants::U2CELL,
+                    block.id.row_u,
                     start_col,
                     1.0,
                 );
+
                 geom.key_placements.insert(
                     arrow_key.to_string(),
                     KeyPlacement {
@@ -303,9 +371,9 @@ pub fn solve_layout(
                         block_id: Some(block.id),
                     },
                 );
+                placed += 1;
             }
         }
     }
-
-    Ok(SolutionLayout { objective_ms })
+    placed
 }

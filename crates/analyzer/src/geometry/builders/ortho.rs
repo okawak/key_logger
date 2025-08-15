@@ -24,15 +24,15 @@ impl GeometryBuilder for OrthoBuilder {
         let mut homes = HashMap::new();
 
         // second row 2 -> 8 cell
-        homes.insert(Finger::LPinky, cell_to_key_center(8, 20, 1.0)); // A
-        homes.insert(Finger::LRing, cell_to_key_center(8, 24, 1.0)); // S
-        homes.insert(Finger::LMiddle, cell_to_key_center(8, 28, 1.0)); // D
-        homes.insert(Finger::LIndex, cell_to_key_center(8, 32, 1.0)); // F
+        homes.insert(Finger::LPinky, cell_to_key_center(2, 20, 1.0)); // A
+        homes.insert(Finger::LRing, cell_to_key_center(2, 24, 1.0)); // S
+        homes.insert(Finger::LMiddle, cell_to_key_center(2, 28, 1.0)); // D
+        homes.insert(Finger::LIndex, cell_to_key_center(2, 32, 1.0)); // F
         homes.insert(Finger::LThumb, cell_to_key_center(0, 32, 1.0));
-        homes.insert(Finger::RIndex, cell_to_key_center(8, 44, 1.0)); // J
-        homes.insert(Finger::RMiddle, cell_to_key_center(8, 48, 1.0)); // K
-        homes.insert(Finger::RRing, cell_to_key_center(8, 52, 1.0)); // L
-        homes.insert(Finger::RPinky, cell_to_key_center(8, 56, 1.0)); // ;
+        homes.insert(Finger::RIndex, cell_to_key_center(2, 44, 1.0)); // J
+        homes.insert(Finger::RMiddle, cell_to_key_center(2, 48, 1.0)); // K
+        homes.insert(Finger::RRing, cell_to_key_center(2, 52, 1.0)); // L
+        homes.insert(Finger::RPinky, cell_to_key_center(2, 56, 1.0)); // ;
         homes.insert(Finger::RThumb, cell_to_key_center(0, 44, 1.0));
 
         homes

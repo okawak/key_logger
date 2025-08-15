@@ -11,7 +11,7 @@ use imageproc::rect::Rect;
 
 use super::types::*;
 use crate::constants::{
-    FONT_SIZE, LEGEND_WIDTH, MARGIN, MAX_COL_CELLS, MAX_ROW_CELLS, U2CELL, U2MM, U2PX,
+    FONT_SIZE, LEGEND_WIDTH, MARGIN, MAX_COL_CELLS, MAX_ROW, U2CELL, U2MM, U2PX,
 };
 use crate::csv_reader::KeyFreq;
 use crate::error::Result;
@@ -20,7 +20,7 @@ use crate::error::Result;
 #[inline]
 fn key_center_to_px(u_x: f32, u_y: f32) -> (f32, f32) {
     let px_x = MARGIN + u_x * U2PX;
-    let px_y = MARGIN + (MAX_ROW_CELLS as f32 / U2CELL as f32 - u_y) * U2PX;
+    let px_y = MARGIN + (MAX_ROW as f32 - u_y) * U2PX;
     (px_x, px_y)
 }
 
@@ -28,7 +28,7 @@ fn key_center_to_px(u_x: f32, u_y: f32) -> (f32, f32) {
 #[inline]
 fn cell_center_to_px(cell_row: usize, cell_col: usize) -> (f32, f32) {
     let u_x = (cell_col as f32 + 0.5) / U2CELL as f32;
-    let u_y = (cell_row as f32 + 0.5) / U2CELL as f32;
+    let u_y = cell_row as f32 + 0.5; // 行は既にu単位なので、中心計算のため0.5を加算
     key_center_to_px(u_x, u_y)
 }
 
@@ -149,7 +149,7 @@ pub fn render_layout<P: AsRef<Path>>(
     render_finger_bg: bool,
 ) -> Result<()> {
     let geom_w_px = (MAX_COL_CELLS as f32 / U2CELL as f32) * U2PX;
-    let geom_h_px = (MAX_ROW_CELLS as f32 / U2CELL as f32) * U2PX;
+    let geom_h_px = MAX_ROW as f32 * U2PX;
 
     let width = (geom_w_px + LEGEND_WIDTH + MARGIN * 3.0) as u32;
     let height = (geom_h_px + MARGIN * 2.0) as u32;
@@ -243,8 +243,41 @@ fn render_all_keys(renderer: &mut Renderer, geom: &Geometry, freqs: &KeyFreq) ->
         let key_left_px = px_x - width_px / 2.0;
         let key_top_px = px_y - height_px / 2.0;
 
-        // キーの境界線のみを描画（内部は透明）
-        renderer.draw_rect_outline(key_left_px, key_top_px, width_px, height_px, Colors::BLACK);
+        // キータイプに応じて描画方法を変更
+        match key_placement.placement_type {
+            PlacementType::Fixed => {
+                // 固定キーは黒枠のみ
+                renderer.draw_rect_outline(
+                    key_left_px,
+                    key_top_px,
+                    width_px,
+                    height_px,
+                    Colors::BLACK,
+                );
+            }
+            PlacementType::Optimized => {
+                // 最適化キーは青い塗りつぶし
+                renderer.draw_rect(key_left_px, key_top_px, width_px, height_px, Colors::BLUE);
+                renderer.draw_rect_outline(
+                    key_left_px,
+                    key_top_px,
+                    width_px,
+                    height_px,
+                    Colors::BLACK,
+                );
+            }
+            PlacementType::Arrow => {
+                // 矢印キーは緑の塗りつぶし
+                renderer.draw_rect(key_left_px, key_top_px, width_px, height_px, Colors::GREEN);
+                renderer.draw_rect_outline(
+                    key_left_px,
+                    key_top_px,
+                    width_px,
+                    height_px,
+                    Colors::BLACK,
+                );
+            }
+        }
 
         // キー名を描画（キー中心）
         let text_x = px_x - 10.0;

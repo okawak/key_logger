@@ -40,7 +40,7 @@ impl CellId {
 /// 1u ブロック（矢印用の占有単位）
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BlockId {
-    pub row_u: usize,
+    pub row_u: usize, // 1u ブロック行（u単位）
     pub col_u: usize, // 1u ブロック列（0.25u 4セルごと）
 }
 

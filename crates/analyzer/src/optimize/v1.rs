@@ -1,13 +1,13 @@
 use std::collections::{BTreeSet, HashMap};
 
+use crate::constants::U2CELL;
 use crate::constants::U2MM;
 use crate::geometry::{
     Geometry,
     fitts::euclid_u,
-    precompute::{Precompute, compute_free_blocks},
+    sets::{OptimizationSets, extract_free_cell_intervals},
     types::{BlockId, CellId, KeyCandidates},
 };
-use crate::constants::U2CELL;
 use crate::keys::{ArrowKey, KeyId};
 
 /// 矢印キー定数
@@ -68,19 +68,19 @@ pub fn generate_v1_key_candidates(
     geom: &Geometry,
     movable_keys: &[KeyId],
 ) -> HashMap<KeyId, KeyCandidates> {
-    let free_blocks = compute_free_blocks(geom);
+    let free_blocks = extract_free_cell_intervals(geom);
     let mut out = HashMap::new();
 
     for &k in movable_keys {
         let widths = width_candidates_for_key(&k);
         let mut starts = Vec::new();
 
-        // 全行に配置可能
-        for r in 0..geom.cells.len() {
-            if r >= free_blocks.len() {
+        // 全行に配置可能（rは今やu単位の行インデックス）
+        for r_u in 0..geom.cells.len() {
+            if r_u >= free_blocks.len() {
                 continue;
             }
-            for &(start, len) in &free_blocks[r] {
+            for &(start, len) in &free_blocks[r_u] {
                 for i in start..(start + len) {
                     let mut fits = Vec::new();
                     for &w in &widths {
@@ -90,7 +90,8 @@ pub fn generate_v1_key_candidates(
                         }
                     }
                     if !fits.is_empty() {
-                        starts.push((CellId::new(r, i), fits));
+                        // CellIdのrowはu単位の行インデックス
+                        starts.push((CellId::new(r_u, i), fits));
                     }
                 }
             }
@@ -139,17 +140,17 @@ pub fn generate_v1_arrow_region(geom: &Geometry) -> (Vec<CellId>, Vec<(CellId, C
     (arrow_cells, arrow_edges)
 }
 
-/// Precomputeから通常キーの候補を生成
+/// OptimizationSetsから通常キーの候補を生成
 pub fn build_candidates_from_precompute(
     geom: &Geometry,
     movable: &BTreeSet<KeyId>,
-    precompute: &Precompute,
+    optimization_sets: &OptimizationSets,
     opt: &super::SolveOptions,
 ) -> Vec<Cand> {
     let mut out = Vec::new();
 
     for &key in movable {
-        if let Some(key_candidates) = precompute.key_cands.get(&key) {
+        if let Some(key_candidates) = optimization_sets.key_cands.get(&key) {
             for (start_cell, widths) in &key_candidates.starts {
                 for &w_u in widths {
                     let w_cells = (w_u * U2CELL as f32).round() as usize;
@@ -157,17 +158,20 @@ pub fn build_candidates_from_precompute(
                         continue;
                     }
 
-                    // 中心セルの指でホームを取る（簡略化）
-                    let c_center = start_cell.col + w_cells / 2;
+                    // 中心座標計算: 行はu単位、列はcell単位
                     let cx = start_cell.col as f32 / U2CELL as f32 + w_u * 0.5;
-                    let cy = start_cell.row as f32;
+                    let cy = start_cell.row as f32; // 既にu単位
 
-                    let finger = geom.cells[start_cell.row][c_center].finger;
+                    let finger = geom.cells[start_cell.row][start_cell.col].finger;
                     let home = geom.homes.get(&finger).cloned().unwrap_or((cx, cy));
-                    let d_mm = (euclid_u((cx, cy), home) as f64) * U2MM;
+                    // homeはmm単位なので、キー座標もmm単位に変換して距離計算
+                    let key_pos_mm = (cx * U2MM as f32, cy * U2MM as f32);
+                    let d_mm = euclid_u(key_pos_mm, home) as f64;
                     let w_mm = (w_u as f64) * U2MM;
                     let t_ms = opt.a_ms + opt.b_ms * ((d_mm / w_mm + 1.0).log2());
 
+                    // 新しい座標系: 行はu単位、列はcell単位
+                    // キーの物理的境界を正確に計算（列方向のみ、行は揃っているため）
                     let cover_cells: Vec<CellId> = (start_cell.col..start_cell.col + w_cells)
                         .map(|cc| CellId::new(start_cell.row, cc))
                         .collect();
@@ -187,10 +191,10 @@ pub fn build_candidates_from_precompute(
     out
 }
 
-/// Precomputeから矢印用ブロックを生成
+/// OptimizationSetsから矢印用ブロックを生成
 pub fn build_blocks_from_precompute(
     _geom: &Geometry,
-    precompute: &Precompute,
+    optimization_sets: &OptimizationSets,
 ) -> (Vec<Block>, HashMap<BlockId, usize>) {
     let mut blocks = Vec::new();
     let mut index = HashMap::new();
@@ -198,7 +202,7 @@ pub fn build_blocks_from_precompute(
     // 1uブロック単位でグループ化
     let mut block_cells: HashMap<(usize, usize), Vec<CellId>> = HashMap::new();
 
-    for &cell_id in &precompute.arrow_cells {
+    for &cell_id in &optimization_sets.arrow_cells {
         let row = cell_id.row;
         let bcol = cell_id.col / U2CELL;
         block_cells.entry((row, bcol)).or_default().push(cell_id);
@@ -234,10 +238,10 @@ pub fn build_blocks_from_precompute(
     (blocks, index)
 }
 
-/// Precomputeから隣接エッジを生成
+/// OptimizationSetsから隣接エッジを生成
 pub fn build_adjacency_from_precompute(
     blocks: &[Block],
-    precompute: &Precompute,
+    optimization_sets: &OptimizationSets,
 ) -> Vec<(usize, usize)> {
     let mut block_index: HashMap<CellId, usize> = HashMap::new();
     for (i, block) in blocks.iter().enumerate() {
@@ -247,7 +251,7 @@ pub fn build_adjacency_from_precompute(
     }
 
     let mut edges = Vec::new();
-    for &(from_cell, to_cell) in &precompute.arrow_edges {
+    for &(from_cell, to_cell) in &optimization_sets.arrow_edges {
         if let (Some(&from_block), Some(&to_block)) =
             (block_index.get(&from_cell), block_index.get(&to_cell))
             && from_block != to_block

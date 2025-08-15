@@ -56,9 +56,15 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    println!("Before optimization: {} keys in key_placements", geom.key_placements.len());
+    for (key_name, key_placement) in &geom.key_placements {
+        println!("  Before: {} -> {:?} at ({:.1}, {:.1})", key_name, key_placement.placement_type, key_placement.x, key_placement.y);
+    }
+
     let sol = solve_layout(&mut geom, &key_freq, &opt)?;
 
     println!("objective(ms): {:.3}", sol.objective_ms);
+    println!("After optimization: {} keys in key_placements", geom.key_placements.len());
 
     // キー配置情報をGeometryから出力
     for (key_name, key_placement) in &geom.key_placements {

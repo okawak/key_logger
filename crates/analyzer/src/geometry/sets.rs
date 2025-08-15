@@ -3,16 +3,16 @@ use std::collections::HashMap;
 use super::types::*;
 use crate::keys::KeyId;
 
-/// Preprocessing output (bundle passed to optimization)
+/// 最適化問題の集合（キー候補、矢印候補等）
 #[derive(Debug, Clone)]
-pub struct Precompute {
+pub struct OptimizationSets {
     pub key_cands: HashMap<KeyId, KeyCandidates>, // General key candidates \mathcal{I}^g_k
     pub arrow_cells: Vec<CellId>,                 // Arrow allowed cells \mathcal{A}^g
     pub arrow_edges: Vec<(CellId, CellId)>,       // 4-neighborhood directed edge set E_g
 }
 
-/// Extract "consecutive free blocks" (cell intervals other than fixed characters) for each row
-pub fn compute_free_blocks(geom: &Geometry) -> Vec<Vec<(usize, usize)>> {
+/// 各行の連続する空きセル区間（固定文字以外のセル範囲）を抽出
+pub fn extract_free_cell_intervals(geom: &Geometry) -> Vec<Vec<(usize, usize)>> {
     let mut out = vec![vec![]; geom.cells.len()];
     for (r, row_blocks) in out.iter_mut().enumerate().take(geom.cells.len()) {
         let mut c = 0usize;
