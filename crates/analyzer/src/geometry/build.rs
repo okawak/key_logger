@@ -104,22 +104,4 @@ impl Geometry {
             GeometryName::Ortho => OrthoBuilder::build_home_positions(),
         };
     }
-
-    /// Calculate geometry-aware position for fixed key rectangles
-    pub fn get_fixed_key_position(&self, row_idx: usize, col_idx: usize) -> (f32, f32) {
-        match self.name {
-            GeometryName::RowStagger => RowStaggerBuilder::get_fixed_key_position(row_idx, col_idx),
-            GeometryName::Ortho => OrthoBuilder::get_fixed_key_position(row_idx, col_idx),
-        }
-    }
-
-    /// Calculate geometry-aware position for QWERTY labels
-    pub fn get_qwerty_label_position(&self, row_idx: usize, char_idx: usize) -> (f32, f32) {
-        match self.name {
-            GeometryName::RowStagger => {
-                RowStaggerBuilder::get_qwerty_label_position(row_idx, char_idx)
-            }
-            GeometryName::Ortho => OrthoBuilder::get_qwerty_label_position(row_idx, char_idx),
-        }
-    }
 }

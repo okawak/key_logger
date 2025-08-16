@@ -104,6 +104,7 @@ fn load_system_font() -> Result<FontVec> {
 
     // Arialまたは代替フォントを探す
     let font_families = vec![
+        FamilyName::Title("Firge35Nerd Console".to_string()),
         FamilyName::Title("Arial".to_string()),
         FamilyName::SansSerif,
         FamilyName::Title("Helvetica".to_string()),
@@ -136,7 +137,9 @@ impl Colors {
     pub const LIGHT_GRAY: Rgb<u8> = Rgb([200, 200, 200]);
     pub const DARK_GRAY: Rgb<u8> = Rgb([128, 128, 128]);
     pub const BLUE: Rgb<u8> = Rgb([0, 100, 255]);
+    pub const LIGHT_BLUE: Rgb<u8> = Rgb([121, 166, 242]);
     pub const GREEN: Rgb<u8> = Rgb([0, 200, 0]);
+    pub const LIGHT_GREEN: Rgb<u8> = Rgb([154, 230, 113]);
     pub const RED: Rgb<u8> = Rgb([255, 0, 0]);
     pub const ORANGE: Rgb<u8> = Rgb([255, 165, 0]);
 }
@@ -215,14 +218,8 @@ fn render_finger_regions(renderer: &mut Renderer, geom: &Geometry) -> Result<()>
 
             // cell中心から左上角に調整（キーと同じ方式）
             let cell_left_px = px_x - cell_size_px / 2.0;
-            let cell_top_px = px_y - cell_size_px / 2.0;
-            renderer.draw_rect(
-                cell_left_px,
-                cell_top_px,
-                cell_size_px,
-                cell_size_px,
-                finger_color,
-            );
+            let cell_top_px = px_y - U2PX / 2.0;
+            renderer.draw_rect(cell_left_px, cell_top_px, cell_size_px, U2PX, finger_color);
         }
     }
     Ok(())
@@ -257,7 +254,13 @@ fn render_all_keys(renderer: &mut Renderer, geom: &Geometry, freqs: &KeyFreq) ->
             }
             PlacementType::Optimized => {
                 // 最適化キーは青い塗りつぶし
-                renderer.draw_rect(key_left_px, key_top_px, width_px, height_px, Colors::BLUE);
+                renderer.draw_rect(
+                    key_left_px,
+                    key_top_px,
+                    width_px,
+                    height_px,
+                    Colors::LIGHT_BLUE,
+                );
                 renderer.draw_rect_outline(
                     key_left_px,
                     key_top_px,
@@ -268,7 +271,13 @@ fn render_all_keys(renderer: &mut Renderer, geom: &Geometry, freqs: &KeyFreq) ->
             }
             PlacementType::Arrow => {
                 // 矢印キーは緑の塗りつぶし
-                renderer.draw_rect(key_left_px, key_top_px, width_px, height_px, Colors::GREEN);
+                renderer.draw_rect(
+                    key_left_px,
+                    key_top_px,
+                    width_px,
+                    height_px,
+                    Colors::LIGHT_GREEN,
+                );
                 renderer.draw_rect_outline(
                     key_left_px,
                     key_top_px,
@@ -279,30 +288,48 @@ fn render_all_keys(renderer: &mut Renderer, geom: &Geometry, freqs: &KeyFreq) ->
             }
         }
 
-        // キー名を描画（キー中心）
-        let text_x = px_x - 10.0;
-        let text_y = px_y - 8.0;
-        let text_color = Colors::BLACK; // 透明背景に黒いテキスト
-
-        // 矢印キーの場合は記号を表示
-        let display_text = if key_placement.placement_type == PlacementType::Arrow {
-            match key_name.as_str() {
-                "Up" => "↑",
-                "Down" => "↓",
-                "Left" => "←",
-                "Right" => "→",
-                _ => key_name.as_str(),
-            }
-        } else {
-            key_name.as_str()
+        // 記号を表示
+        let display_text = match key_name.as_str() {
+            "ArrowUp" => "↑",
+            "ArrowDown" => "↓",
+            "ArrowLeft" => "←",
+            "ArrowRight" => "→",
+            "Backslash" => r"\",
+            "Slash" => "/",
+            "RBracket" => "]",
+            "LBracket" => "[",
+            "Semicolon" => ";",
+            "Equal" => "=",
+            "Minus" => "-",
+            "Backtick" => "`",
+            "Quote" => "'",
+            "RightShift" => "R⇧",
+            "Period" => ".",
+            "Comma" => ",",
+            "LeftShift" => "L⇧",
+            "Space" => "△",
+            "LeftControl" => "LCtrl",
+            "RightControl" => "RCtrl",
+            "LeftAlt" => "LAlt",
+            "RightAlt" => "RAlt",
+            "LeftMeta" => "LMeta",
+            "RightMeta" => "RMeta",
+            "Backspace" => "BS",
+            "Delete" => "Del",
+            "CapsLock" => "Caps",
+            "Escape" => "Esc",
+            _ => key_name.as_str(),
         };
+
+        // キー名を描画（キー中心）
+        let text_x = px_x - U2PX / 10.0 - U2PX / 15.0 * (display_text.chars().count() - 1) as f32;
+        let text_y = px_y - U2PX / 3.0; // offsetを調整
+        let text_color = Colors::BLACK; // 透明背景に黒いテキスト
 
         renderer.draw_text(text_x, text_y, display_text, FONT_SIZE, text_color);
 
-        // 頻度情報を描画（最適化されたキーのみ）
-        if key_placement.placement_type == PlacementType::Optimized
-            && let Some(key_id) = key_placement.key_id
-        {
+        // 頻度情報を描画
+        if let Some(key_id) = key_placement.key_id {
             let count = freqs.get_count(key_id);
             if count > 0 {
                 let freq_text = format!("{}", count);
@@ -317,7 +344,7 @@ fn render_all_keys(renderer: &mut Renderer, geom: &Geometry, freqs: &KeyFreq) ->
 
 /// ホームポジションを描画
 fn render_home_positions_from_homes(renderer: &mut Renderer, geom: &Geometry) -> Result<()> {
-    for (finger, &(home_x, home_y)) in &geom.homes {
+    for (home_x, home_y) in geom.homes.values() {
         // home座標はmm単位なので、u単位に変換してからpx変換
         let x_u = home_x / U2MM as f32;
         let y_u = home_y / U2MM as f32;
@@ -332,22 +359,6 @@ fn render_home_positions_from_homes(renderer: &mut Renderer, geom: &Geometry) ->
             circle_size,
             Colors::RED,
         );
-
-        // 指ラベルを描画
-        let finger_label = match finger {
-            Finger::LPinky => "LP",
-            Finger::LRing => "LR",
-            Finger::LMiddle => "LM",
-            Finger::LIndex => "LI",
-            Finger::LThumb => "LT",
-            Finger::RThumb => "RT",
-            Finger::RIndex => "RI",
-            Finger::RMiddle => "RM",
-            Finger::RRing => "RR",
-            Finger::RPinky => "RP",
-        };
-
-        renderer.draw_text(px_x + 10.0, px_y - 8.0, finger_label, 10.0, Colors::BLACK);
     }
     Ok(())
 }

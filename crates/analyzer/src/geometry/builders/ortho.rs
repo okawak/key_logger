@@ -1,13 +1,12 @@
 use super::super::types::*;
 use super::GeometryBuilder;
-use crate::constants::U2CELL;
 use crate::constants::cell_to_key_center;
 use std::collections::HashMap;
 
 pub struct OrthoBuilder;
 
 impl GeometryBuilder for OrthoBuilder {
-    /// row-idx [u], start-cell [cell], Vec of key names
+    /// row-idx \[u\], start-cell \[cell\], Vec of key names
     fn get_letter_block_positions() -> Vec<(usize, usize, Vec<&'static str>)> {
         vec![
             (1, 20, vec!["Z", "X", "C", "V", "B", "N", "M"]), // Bottom row ZXCV: 7 keys
@@ -36,18 +35,5 @@ impl GeometryBuilder for OrthoBuilder {
         homes.insert(Finger::RThumb, cell_to_key_center(0, 44, 1.0));
 
         homes
-    }
-
-    fn get_fixed_key_position(row_idx: usize, col_idx: usize) -> (f32, f32) {
-        // Orthoの場合は行オフセットを無視
-        let x0 = col_idx as f32 / U2CELL as f32;
-        let y0 = row_idx as f32 - 0.5;
-        (x0, y0)
-    }
-
-    fn get_qwerty_label_position(row_idx: usize, char_idx: usize) -> (f32, f32) {
-        let x = char_idx as f32 + 0.5;
-        let y = row_idx as f32;
-        (x, y)
     }
 }
