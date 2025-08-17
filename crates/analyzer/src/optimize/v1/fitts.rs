@@ -4,7 +4,7 @@ use crate::constants::U2MM;
 
 /// Euclidean distance calculation
 #[inline]
-fn euclid_distance(a: (f32, f32), b: (f32, f32)) -> f32 {
+pub fn euclid_distance(a: (f32, f32), b: (f32, f32)) -> f32 {
     let dx = a.0 - b.0;
     let dy = a.1 - b.1;
     (dx * dx + dy * dy).sqrt()

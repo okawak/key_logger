@@ -2,6 +2,7 @@
 // このファイルは Phase 1 実装時に詳細化される
 
 use crate::geometry::types::Finger;
+use crate::optimize::config::{FittsCoefficientsConfig, finger_from_string};
 use std::collections::HashMap;
 
 /// 指別Fitts係数の設定
@@ -38,15 +39,61 @@ impl Default for FittsCoefficients {
     }
 }
 
-/// Phase 1で実装予定: 指別のFitts時間計算
+impl FittsCoefficients {
+    /// 設定から指別係数を作成
+    /// Create finger-specific coefficients from configuration
+    pub fn from_config(config: &FittsCoefficientsConfig) -> Self {
+        if let Some(ref values) = config.values {
+            let mut coeffs = HashMap::new();
+
+            for (finger_str, coeffs_array) in values {
+                if let Some(finger) = finger_from_string(finger_str) {
+                    coeffs.insert(finger, (coeffs_array[0], coeffs_array[1]));
+                } else {
+                    log::warn!("Unknown finger name in config: {}", finger_str);
+                }
+            }
+
+            // 不足している指はデフォルト値で補完
+            let default_coeffs = Self::default();
+            for (finger, default_coeff) in default_coeffs.coeffs_per_finger {
+                coeffs.entry(finger).or_insert(default_coeff);
+            }
+
+            Self {
+                coeffs_per_finger: coeffs,
+            }
+        } else {
+            // values が None の場合はデフォルトを使用
+            Self::default()
+        }
+    }
+}
+
+/// Phase 1: 指別のFitts時間計算
+/// Finger-specific Fitts time calculation
 pub fn compute_fitts_time_per_finger(
-    _finger: Finger,
-    _distance_mm: f64,
-    _width_mm: f64,
-    _coeffs: &FittsCoefficients,
+    finger: Finger,
+    distance_mm: f64,
+    width_mm: f64,
+    coeffs: &FittsCoefficients,
 ) -> f64 {
-    // Phase 1で実装
-    todo!("Phase 1: finger-specific Fitts time calculation not yet implemented")
+    // 指別の係数を取得
+    let (a_f, b_f) = coeffs
+        .coeffs_per_finger
+        .get(&finger)
+        .copied()
+        .unwrap_or_else(|| {
+            // フォールバック: デフォルト値を使用
+            log::warn!(
+                "No coefficients found for finger {:?}, using default values",
+                finger
+            );
+            (50.0, 150.0)
+        });
+
+    // Fitts' law: T = a + b * log2(D/W + 1)
+    a_f + b_f * ((distance_mm / width_mm + 1.0).log2())
 }
 
 /// Phase 2で実装予定: 方向依存の有効幅計算
