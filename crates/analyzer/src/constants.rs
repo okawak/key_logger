@@ -46,6 +46,11 @@ pub fn cell_to_key_center(row: usize, col: usize, width: f32) -> (f32, f32) {
     (x, y)
 }
 
+/// Copilot feedback対応: 必要最小限のFitts定数のみ
+pub const DEFAULT_FITTS_A_MS: f64 = 50.0; // Default Fitts coefficient a (ms) 
+pub const DEFAULT_FITTS_B_MS: f64 = 150.0; // Default Fitts coefficient b (ms)
+pub const STANDARD_KEY_HEIGHT_U: f32 = 1.0; // Standard key height in u units
+
 /// Euclidean distance calculation between two points
 #[inline]
 pub fn euclid_distance(a: (f32, f32), b: (f32, f32)) -> f32 {

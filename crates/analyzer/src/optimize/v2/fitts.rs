@@ -99,7 +99,10 @@ pub fn compute_fitts_time_per_finger(
                 "No coefficients found for finger {:?}, using default values",
                 finger
             );
-            (50.0, 150.0)
+            (
+                crate::constants::DEFAULT_FITTS_A_MS,
+                crate::constants::DEFAULT_FITTS_B_MS,
+            )
         });
 
     // Fitts' law: T = a + b * log2(D/W + 1)
@@ -182,8 +185,12 @@ pub fn compute_fitts_time_directional(
         return f64::INFINITY;
     }
 
-    // Phase 2: 方向依存の有効幅を計算（h_u = 1.0u固定）
-    let effective_width_u = effective_width_elliptical(width_u, 1.0, direction_phi);
+    // Phase 2: 方向依存の有効幅を計算（h_u = 標準キー高さ）
+    let effective_width_u = effective_width_elliptical(
+        width_u,
+        crate::constants::STANDARD_KEY_HEIGHT_U,
+        direction_phi,
+    );
     let effective_width_mm = effective_width_u as f64 * crate::constants::U2MM;
 
     // Phase 1: 指別係数を取得
@@ -196,7 +203,10 @@ pub fn compute_fitts_time_directional(
                 "No coefficients found for finger {:?}, using default values",
                 finger
             );
-            (50.0, 150.0)
+            (
+                crate::constants::DEFAULT_FITTS_A_MS,
+                crate::constants::DEFAULT_FITTS_B_MS,
+            )
         });
 
     // Division by zero protection（Phase 1からの継承）
