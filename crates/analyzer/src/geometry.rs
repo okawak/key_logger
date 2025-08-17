@@ -1,6 +1,5 @@
 pub mod build;
 pub mod builders;
-pub mod fitts;
 pub mod sets;
 pub mod types;
 pub mod visualization;

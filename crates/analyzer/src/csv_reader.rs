@@ -160,7 +160,7 @@ pub fn read_key_freq_from_directory<P: AsRef<Path>>(
                 }
             }
             Err(e) => {
-                eprintln!("Warning: Failed to read CSV file {}: {}", path.display(), e);
+                log::warn!("Failed to read CSV file {}: {}", path.display(), e);
                 // Continue processing other files instead of failing
             }
         }

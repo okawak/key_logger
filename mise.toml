@@ -1,3 +1,7 @@
 [tasks.clean]
 description = "clean output figures"
-run = 'rm -rf figs'
+run = "rm -rf figs"
+
+[tasks.lint]
+description = "run linter and formatter"
+run = "cargo fmt --all -- --check && cargo clippy --all-targets --all-features -- -D warnings"

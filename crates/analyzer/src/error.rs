@@ -42,6 +42,24 @@ pub enum KbOptError {
     #[error("Key placement error: {message}")]
     PlacementError { message: String },
 
+    #[error("Configuration error: {0}")]
+    ConfigError(String),
+
+    #[error("I/O error: {0}")]
+    IoError(String),
+
     #[error("Other error: {0}")]
     Other(String),
+}
+
+impl From<toml::de::Error> for KbOptError {
+    fn from(err: toml::de::Error) -> Self {
+        KbOptError::ConfigError(format!("TOML parse error: {}", err))
+    }
+}
+
+impl From<serde_json::Error> for KbOptError {
+    fn from(err: serde_json::Error) -> Self {
+        KbOptError::IoError(format!("JSON error: {}", err))
+    }
 }

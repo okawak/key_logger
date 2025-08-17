@@ -1,8 +1,10 @@
 use analyzer::csv_reader::KeyFreq;
 use analyzer::geometry::{Geometry, GeometryName, save_layout};
 use anyhow::Result;
+use log::info;
 
 fn main() -> Result<()> {
+    env_logger::init();
     let geometries = [
         (GeometryName::RowStagger, "row_stagger"),
         (GeometryName::Ortho, "ortho"),
@@ -15,9 +17,9 @@ fn main() -> Result<()> {
         let key_freq = KeyFreq::new();
 
         let output_path = save_layout(&geom, &key_freq, true, file_prefix)?;
-        println!("wrote {}", output_path.display());
+        info!("wrote {}", output_path.display());
     }
 
-    println!("All geometry visualizations generated in figs/ directory");
+    info!("All geometry visualizations generated in figs/ directory");
     Ok(())
 }
