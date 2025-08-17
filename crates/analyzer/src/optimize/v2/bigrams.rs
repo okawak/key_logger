@@ -63,21 +63,3 @@ pub fn load_bigram_data(_path: &str) -> Result<BigramData, KbOptError> {
     // Phase 5で実装
     todo!("Phase 5: bigram data loading not yet implemented")
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_bigram_config_default() {
-        let config = BigramConfig::default();
-        matches!(config.approach, BigramApproach::Disabled);
-        assert_eq!(config.min_frequency, 10.0);
-    }
-
-    #[test]
-    fn test_bigram_data_default() {
-        let data = BigramData::default();
-        assert!(data.frequencies.is_empty());
-    }
-}

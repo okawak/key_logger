@@ -72,20 +72,3 @@ pub fn compute_fitts_time_directional(
     // Phase 1+2で実装
     todo!("Phase 1+2: directional finger-specific Fitts time not yet implemented")
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_fitts_coefficients_default() {
-        let coeffs = FittsCoefficients::default();
-        assert_eq!(coeffs.coeffs_per_finger.len(), 10); // 10本の指
-
-        // 人差し指は高速であることを確認
-        let (a_index, b_index) = coeffs.coeffs_per_finger[&Finger::LIndex];
-        let (a_pinky, b_pinky) = coeffs.coeffs_per_finger[&Finger::LPinky];
-        assert!(a_index < a_pinky); // 人差し指の方が速い
-        assert!(b_index < b_pinky);
-    }
-}

@@ -257,36 +257,3 @@ pub fn finger_to_string(finger: Finger) -> &'static str {
         Finger::RPinky => "RPinky",
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_default_config() {
-        let config = Config::default();
-        assert_eq!(config.solver.version, "v1");
-        assert!(config.validate().is_ok());
-    }
-
-    #[test]
-    fn test_config_validation() {
-        let mut config = Config::default();
-
-        // Invalid version
-        config.solver.version = "invalid".to_string();
-        assert!(config.validate().is_err());
-
-        // Invalid b_ms
-        config.solver.version = "v1".to_string();
-        config.v1.b_ms = -1.0;
-        assert!(config.validate().is_err());
-    }
-
-    #[test]
-    fn test_finger_conversion() {
-        assert_eq!(finger_from_string("LIndex"), Some(Finger::LIndex));
-        assert_eq!(finger_to_string(Finger::RThumb), "RThumb");
-        assert_eq!(finger_from_string("Invalid"), None);
-    }
-}

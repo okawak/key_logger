@@ -13,7 +13,7 @@ b_ms = 1.0
 enable = true
 [v2.fitts_coefficients.values]
 LThumb = [45.0, 140.0]
-LIndex = [35.0, 110.0] 
+LIndex = [35.0, 110.0]
 LMiddle = [40.0, 120.0]
 LRing = [50.0, 135.0]
 LPinky = [60.0, 150.0]
@@ -31,7 +31,7 @@ enable = true
 [v2.layers]
 enable = false
 modifier_penalty_ms = 8.0
-modifier_rows = [4]  # 親指行のみ
+modifier_rows = [4]       # 親指行のみ
 
 [v2.digit_cluster]
 enable = false

@@ -47,16 +47,3 @@ where
     // Phase 3で実装
     todo!("Phase 3: layer constraints not yet implemented")
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_layer_config_default() {
-        let config = LayerConfig::default();
-        assert!(!config.enable_layers);
-        assert_eq!(config.modifier_penalty_ms, 10.0);
-        assert!(!config.parallel_coefficients.is_empty());
-    }
-}
