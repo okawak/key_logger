@@ -208,14 +208,15 @@ pub fn solve_layout_with_finger_fitts(
             blk.center.1 * crate::constants::U2MM as f32,
         ));
 
-        // 指別係数でFitts時間を計算
+        // 指別係数でFitts時間を計算 - 距離計算を1回だけ実行してキャッシュ
         let center_mm = (
             blk.center.0 * crate::constants::U2MM as f32,
             blk.center.1 * crate::constants::U2MM as f32,
         );
+        let center_home_dist = crate::constants::euclid_distance(center_mm, home) as f64;
         let t_ms = super::fitts::compute_fitts_time_per_finger(
             finger,
-            v1::fitts::euclid_distance(center_mm, home) as f64,
+            center_home_dist,
             1.0 * crate::constants::U2MM,
             &fitts_coeffs,
         );
@@ -407,7 +408,8 @@ fn build_finger_aware_candidates(
                         cx * crate::constants::U2MM as f32,
                         cy * crate::constants::U2MM as f32,
                     );
-                    let distance_mm = v1::fitts::euclid_distance(key_center_mm, home) as f64;
+                    // Calculate distance once to avoid repeated computation
+                    let distance_mm = crate::constants::euclid_distance(key_center_mm, home) as f64;
                     let width_mm = w_u as f64 * crate::constants::U2MM;
                     let t_ms = super::fitts::compute_fitts_time_per_finger(
                         finger,

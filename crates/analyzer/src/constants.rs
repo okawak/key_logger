@@ -45,3 +45,11 @@ pub fn cell_to_key_center(row: usize, col: usize, width: f32) -> (f32, f32) {
     y += 0.5 * U2MM as f32; // キーの中心位置（0.5u offset for center）
     (x, y)
 }
+
+/// Euclidean distance calculation between two points
+#[inline]
+pub fn euclid_distance(a: (f32, f32), b: (f32, f32)) -> f32 {
+    let dx = a.0 - b.0;
+    let dy = a.1 - b.1;
+    (dx * dx + dy * dy).sqrt()
+}

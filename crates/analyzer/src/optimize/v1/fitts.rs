@@ -1,14 +1,6 @@
 // v1: シンプルな単一係数Fitts法則実装
 
-use crate::constants::U2MM;
-
-/// Euclidean distance calculation
-#[inline]
-pub fn euclid_distance(a: (f32, f32), b: (f32, f32)) -> f32 {
-    let dx = a.0 - b.0;
-    let dy = a.1 - b.1;
-    (dx * dx + dy * dy).sqrt()
-}
+use crate::constants::{U2MM, euclid_distance};
 
 /// v1: シンプルな単一係数Fitts法則
 ///

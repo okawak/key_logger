@@ -78,6 +78,16 @@ pub fn compute_fitts_time_per_finger(
     width_mm: f64,
     coeffs: &FittsCoefficients,
 ) -> f64 {
+    // Division by zero protection
+    if width_mm <= 0.0 {
+        log::error!(
+            "Invalid width_mm ({}) for finger {:?}, using minimum value",
+            width_mm,
+            finger
+        );
+        return f64::INFINITY; // Return infinity for invalid input
+    }
+
     // 指別の係数を取得
     let (a_f, b_f) = coeffs
         .coeffs_per_finger
