@@ -43,24 +43,6 @@ impl SolveOptionsV2 {
             bigrams: config.v2.bigrams.clone(),
         }
     }
-
-    /// Phase 1 (指別Fitts係数) が有効かチェック
-    /// Check if Phase 1 (finger-specific Fitts coefficients) is enabled
-    pub fn is_phase1_enabled(&self) -> bool {
-        self.fitts_coeffs
-            .as_ref()
-            .map(|config| config.enable)
-            .unwrap_or(false)
-    }
-
-    /// Phase 2 (方向依存幅) が有効かチェック  
-    /// Check if Phase 2 (directional width) is enabled
-    pub fn is_phase2_enabled(&self) -> bool {
-        self.directional_width
-            .as_ref()
-            .map(|config| config.enable)
-            .unwrap_or(false)
-    }
 }
 
 // Re-export the main solver function

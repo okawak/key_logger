@@ -106,26 +106,110 @@ pub fn compute_fitts_time_per_finger(
     a_f + b_f * ((distance_mm / width_mm + 1.0).log2())
 }
 
-/// Phase 2で実装予定: 方向依存の有効幅計算
-pub fn effective_width_elliptical(_w_u: f32, _h_u: f32, _direction_phi: f32) -> f32 {
-    // Phase 2で実装
-    todo!("Phase 2: directional effective width not yet implemented")
+/// Phase 2: 方向依存の有効幅計算（楕円近似）
+/// Directional effective width calculation using elliptical approximation
+///
+/// 式: W_eff(w_u, φ) = 1/√((cos²φ/w_u²) + (sin²φ/h_u²))
+/// Reference: Accot, J., & Zhai, S. (2002). More than dotting the i's—foundations for crossing-based interfaces.
+pub fn effective_width_elliptical(w_u: f32, h_u: f32, direction_phi: f32) -> f32 {
+    // 引数の検証
+    if w_u <= 0.0 || h_u <= 0.0 {
+        log::error!("Invalid key dimensions: w_u={}, h_u={}", w_u, h_u);
+        return w_u.max(h_u).max(1.0); // フォールバック: より大きい方の値を使用
+    }
+
+    let cos_phi = direction_phi.cos();
+    let sin_phi = direction_phi.sin();
+
+    // 楕円近似計算: W_eff = 1 / sqrt(cos²φ/w_u² + sin²φ/h_u²)
+    let denominator = (cos_phi * cos_phi) / (w_u * w_u) + (sin_phi * sin_phi) / (h_u * h_u);
+
+    if denominator <= 0.0 {
+        log::error!(
+            "Invalid elliptical calculation denominator: {}",
+            denominator
+        );
+        return w_u.max(h_u); // フォールバック
+    }
+
+    1.0 / denominator.sqrt()
 }
 
-/// Phase 2で実装予定: 方向角の計算
-pub fn compute_direction_angle(_from: (f32, f32), _to: (f32, f32)) -> f32 {
-    // Phase 2で実装
-    todo!("Phase 2: direction angle calculation not yet implemented")
+/// Phase 2: 方向角の計算
+/// Direction angle calculation from home position to key center
+///
+/// 戻り値: ラジアン単位の角度（-π から π）
+/// - 0: 右方向（+X軸）
+/// - π/2: 上方向（+Y軸）  
+/// - π: 左方向（-X軸）
+/// - -π/2: 下方向（-Y軸）
+pub fn compute_direction_angle(from: (f32, f32), to: (f32, f32)) -> f32 {
+    let dx = to.0 - from.0;
+    let dy = to.1 - from.1;
+
+    // 距離が非常に小さい場合（ほぼ同じ位置）
+    if dx.abs() < 1e-6 && dy.abs() < 1e-6 {
+        log::debug!(
+            "Very small distance in direction calculation: dx={}, dy={}",
+            dx,
+            dy
+        );
+        return 0.0; // デフォルトは右方向
+    }
+
+    // atan2を使用して方向角を計算（-π から π の範囲）
+    dy.atan2(dx)
 }
 
-/// Phase 1+2で実装予定: 方向依存の指別Fitts時間計算
+/// Phase 1+2: 方向依存の指別Fitts時間計算
+/// Directional finger-specific Fitts time calculation
+///
+/// Phase 1の指別係数とPhase 2の方向依存有効幅を組み合わせた計算
 pub fn compute_fitts_time_directional(
-    _finger: Finger,
-    _distance_mm: f64,
-    _width_u: f32,
-    _direction_phi: f32,
-    _coeffs: &FittsCoefficients,
+    finger: Finger,
+    distance_mm: f64,
+    width_u: f32,
+    direction_phi: f32,
+    coeffs: &FittsCoefficients,
 ) -> f64 {
-    // Phase 1+2で実装
-    todo!("Phase 1+2: directional finger-specific Fitts time not yet implemented")
+    // キー幅の検証
+    if width_u <= 0.0 {
+        log::error!(
+            "Invalid width_u ({}) for directional Fitts calculation, finger {:?}",
+            width_u,
+            finger
+        );
+        return f64::INFINITY;
+    }
+
+    // Phase 2: 方向依存の有効幅を計算（h_u = 1.0u固定）
+    let effective_width_u = effective_width_elliptical(width_u, 1.0, direction_phi);
+    let effective_width_mm = effective_width_u as f64 * crate::constants::U2MM;
+
+    // Phase 1: 指別係数を取得
+    let (a_f, b_f) = coeffs
+        .coeffs_per_finger
+        .get(&finger)
+        .copied()
+        .unwrap_or_else(|| {
+            log::warn!(
+                "No coefficients found for finger {:?}, using default values",
+                finger
+            );
+            (50.0, 150.0)
+        });
+
+    // Division by zero protection（Phase 1からの継承）
+    if effective_width_mm <= 0.0 {
+        log::error!(
+            "Invalid effective_width_mm ({}) for finger {:?}, direction_phi={}",
+            effective_width_mm,
+            finger,
+            direction_phi
+        );
+        return f64::INFINITY;
+    }
+
+    // Fitts' law with directional effective width: T = a + b * log2(D/W_eff + 1)
+    a_f + b_f * ((distance_mm / effective_width_mm + 1.0).log2())
 }
