@@ -24,6 +24,14 @@ pub struct ComparisonMetadata {
 }
 
 impl VersionComparison {
+    /// Create compare directory helper method
+    fn create_compare_dir() -> Result<PathBuf, KbOptError> {
+        let compare_dir = PathBuf::from("compare");
+        std::fs::create_dir_all(&compare_dir).map_err(|e| {
+            KbOptError::IoError(format!("Failed to create compare directory: {}", e))
+        })?;
+        Ok(compare_dir)
+    }
     pub fn new(
         v1_result: super::SolutionLayout,
         v2_result: super::SolutionLayout,
@@ -131,17 +139,13 @@ impl VersionComparison {
             self.comparison_metadata.key_diff_count,
         );
 
-        // Create compare directory in project root
-        let compare_dir = PathBuf::from("compare");
-        std::fs::create_dir_all(&compare_dir).map_err(|e| {
-            KbOptError::IoError(format!("Failed to create compare directory: {}", e))
-        })?;
+        let compare_dir = Self::create_compare_dir()?;
 
         let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
         let filename = compare_dir.join(format!("comparison_report_{}.html", timestamp));
         std::fs::write(&filename, html_content)
             .map_err(|e| KbOptError::IoError(format!("Failed to save HTML report: {}", e)))?;
-        println!("Comparison report saved to: {}", filename.display());
+        log::info!("Comparison report saved to: {}", filename.display());
         Ok(())
     }
 
@@ -163,17 +167,13 @@ impl VersionComparison {
             }
         });
 
-        // Create compare directory in project root
-        let compare_dir = PathBuf::from("compare");
-        std::fs::create_dir_all(&compare_dir).map_err(|e| {
-            KbOptError::IoError(format!("Failed to create compare directory: {}", e))
-        })?;
+        let compare_dir = Self::create_compare_dir()?;
 
         let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
         let filename = compare_dir.join(format!("comparison_report_{}.json", timestamp));
         std::fs::write(&filename, serde_json::to_string_pretty(&json_data)?)
             .map_err(|e| KbOptError::IoError(format!("Failed to save JSON report: {}", e)))?;
-        println!("Comparison report saved to: {}", filename.display());
+        log::info!("Comparison report saved to: {}", filename.display());
         Ok(())
     }
 
@@ -189,17 +189,13 @@ impl VersionComparison {
             self.comparison_metadata.key_diff_count,
         );
 
-        // Create compare directory in project root
-        let compare_dir = PathBuf::from("compare");
-        std::fs::create_dir_all(&compare_dir).map_err(|e| {
-            KbOptError::IoError(format!("Failed to create compare directory: {}", e))
-        })?;
+        let compare_dir = Self::create_compare_dir()?;
 
         let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
         let filename = compare_dir.join(format!("comparison_report_{}.csv", timestamp));
         std::fs::write(&filename, csv_content)
             .map_err(|e| KbOptError::IoError(format!("Failed to save CSV report: {}", e)))?;
-        println!("Comparison report saved to: {}", filename.display());
+        log::info!("Comparison report saved to: {}", filename.display());
         Ok(())
     }
 }

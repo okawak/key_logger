@@ -174,6 +174,14 @@ impl Config {
         }
 
         // v2設定の検証
+        self.validate_fitts_coefficients()?;
+        self.validate_bigrams_config()?;
+
+        Ok(())
+    }
+
+    /// Fitts係数の検証
+    fn validate_fitts_coefficients(&self) -> Result<(), KbOptError> {
         if let Some(ref fitts_config) = self.v2.fitts_coefficients
             && fitts_config.enable
             && let Some(ref values) = fitts_config.values
@@ -187,7 +195,11 @@ impl Config {
                 }
             }
         }
+        Ok(())
+    }
 
+    /// ビグラム設定の検証
+    fn validate_bigrams_config(&self) -> Result<(), KbOptError> {
         if let Some(ref bigrams_config) = self.v2.bigrams
             && bigrams_config.enable
         {
@@ -201,7 +213,6 @@ impl Config {
                 }
             }
         }
-
         Ok(())
     }
 

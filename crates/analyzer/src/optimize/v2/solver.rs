@@ -1,5 +1,7 @@
 // v2ソルバー実装: 指別係数Fitts法則を使用した高度な最適化
+// v2 solver implementation: Advanced optimization using finger-specific Fitts law coefficients
 // Phase 0では v1と同じ実装を使用（将来の段階的実装に向けた準備）
+// Phase 0 uses the same implementation as v1 (preparation for future phased implementation)
 
 use super::SolveOptionsV2;
 use crate::csv_reader::KeyFreq;
@@ -8,9 +10,11 @@ use crate::geometry::Geometry;
 use crate::optimize::{SolutionLayout, v1};
 
 /// v2ソルバーのメインエントリポイント
+/// Main entry point for v2 solver
 ///
-/// Phase 0: v1互換実装
+/// Phase 0: v1互換実装 / v1-compatible implementation
 /// Phase 1+: 指別Fitts係数、方向依存幅などの拡張機能を段階的に追加
+/// Phase 1+: Progressive addition of advanced features like finger-specific Fitts coefficients, directional width
 pub fn solve_layout_v2(
     geom: &mut Geometry,
     freqs: &KeyFreq,
@@ -64,7 +68,8 @@ pub fn solve_layout_v2(
     }
 
     // Phase 0: すべての拡張機能が無効の場合、v1と同じ実装を使用
-    println!("v2 solver: using v1 implementation (Phase 0)");
+    // Phase 0: When all advanced features are disabled, use the same implementation as v1
+    log::info!("v2 solver: using v1 implementation (Phase 0)");
     v1::solve_layout_v1(geom, freqs, &opts.base)
 }
 

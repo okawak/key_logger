@@ -15,6 +15,12 @@ impl Default for FittsCoefficients {
         let mut coeffs = HashMap::new();
 
         // 研究ベースの初期値
+        // 参考: MacKenzie, I. S., Marteniuk, R. G., Dugas, C., Liske, D., & Eickmeier, B. (1987).
+        // "Three-dimensional movement trajectories in Fitts' task: Implications for control."
+        // Quarterly Journal of Experimental Psychology, 39(4), 629-647. DOI:10.1080/14640748708401806
+        //
+        // 上記論文等を参考に、指ごとのFitts係数(a_f, b_f)の初期値を設定
+        // 値は実験データに基づく暫定値であり、実際の使用時には調整が必要
         coeffs.insert(Finger::LThumb, (50.0, 150.0));
         coeffs.insert(Finger::LIndex, (40.0, 120.0));
         coeffs.insert(Finger::LMiddle, (45.0, 130.0));

@@ -5,6 +5,7 @@ use analyzer::{
     optimize::{Config, common::execute_comparison},
 };
 use clap::Parser;
+use log::{error, info, warn};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -32,16 +33,20 @@ struct Args {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    env_logger::init();
     let args = Args::parse();
 
     // Parse geometry type
     let geometry_enum = match args.geometry.as_str() {
         "row-stagger" => GeometryName::RowStagger,
         "ortho" => GeometryName::Ortho,
-        "column-stagger" => GeometryName::RowStagger, // Fallback to RowStagger
+        "column-stagger" => {
+            error!("Geometry type 'column-stagger' is not yet supported.");
+            std::process::exit(1);
+        }
         _ => {
-            eprintln!(
-                "Error: Unknown geometry type: {}. Available: row-stagger, ortho, column-stagger",
+            error!(
+                "Unknown geometry type: {}. Available: row-stagger, ortho, column-stagger",
                 args.geometry
             );
             std::process::exit(1);
@@ -55,7 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut config = if args.config.exists() {
         Config::load_from_file(args.config.to_str().unwrap())?
     } else {
-        println!(
+        warn!(
             "Config file not found: {}, using default settings",
             args.config.display()
         );
@@ -85,21 +90,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Try to read from directory first
         match read_key_freq_from_directory(&args.data_path, &parse_opts) {
             Ok(freq) => {
-                println!(
+                info!(
                     "Successfully loaded {} unique keys from {} CSV files",
                     freq.unique_keys(),
                     args.data_path.display()
                 );
-                println!("Total key presses: {}", freq.total());
+                info!("Total key presses: {}", freq.total());
                 freq
             }
             Err(e) => {
-                eprintln!(
-                    "Warning: Failed to read CSV files from directory {}: {}",
+                warn!(
+                    "Failed to read CSV files from directory {}: {}",
                     args.data_path.display(),
                     e
                 );
-                eprintln!("Using fallback test data instead.");
+                warn!("Using fallback test data instead.");
                 create_fallback_data()
             }
         }
@@ -107,40 +112,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Single CSV file
         match analyzer::csv_reader::read_key_freq_csv(&args.data_path, &parse_opts) {
             Ok(freq) => {
-                println!(
+                info!(
                     "Successfully loaded {} unique keys from CSV file: {}",
                     freq.unique_keys(),
                     args.data_path.display()
                 );
-                println!("Total key presses: {}", freq.total());
+                info!("Total key presses: {}", freq.total());
                 freq
             }
             Err(e) => {
-                eprintln!(
-                    "Warning: Failed to read CSV file {}: {}",
+                warn!(
+                    "Failed to read CSV file {}: {}",
                     args.data_path.display(),
                     e
                 );
-                eprintln!("Using fallback test data instead.");
+                warn!("Using fallback test data instead.");
                 create_fallback_data()
             }
         }
     } else {
-        eprintln!(
-            "Warning: Data path {} not found. Using fallback test data.",
+        warn!(
+            "Data path {} not found. Using fallback test data.",
             args.data_path.display()
         );
         create_fallback_data()
     };
 
-    println!("=== v1 vs v2 Keyboard Layout Optimization Comparison ===");
-    println!("Configuration: {}", args.config.display());
-    println!("Data source: {}", args.data_path.display());
-    println!("Geometry: {}", args.geometry);
-    println!("Report format: {}", args.report_format);
-    println!("Include F-keys: {}", config.v1.include_fkeys);
-    println!("Key frequency data loaded successfully");
-    println!();
+    info!("=== v1 vs v2 Keyboard Layout Optimization Comparison ===");
+    info!("Configuration: {}", args.config.display());
+    info!("Data source: {}", args.data_path.display());
+    info!("Geometry: {}", args.geometry);
+    info!("Report format: {}", args.report_format);
+    info!("Include F-keys: {}", config.v1.include_fkeys);
+    info!("Key frequency data loaded successfully");
 
     // Execute comparison
     let v1_opts = config.to_solve_options_v1();
@@ -153,17 +157,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         comparison_result.save_report(&comp_config.report_format)?;
     }
 
-    println!();
-    println!("=== Comparison Results ===");
-    println!(
+    info!("=== Comparison Results ===");
+    info!(
         "Final result objective: {:.3} ms",
         comparison_result.v2_result.objective_ms
     );
-    println!();
-    println!("Comparison reports have been saved to the 'compare/' directory.");
-    println!("Open the HTML report to view detailed comparison results and visualizations.");
-    println!();
-    println!("Comparison completed successfully!");
+    info!("Comparison reports have been saved to the 'compare/' directory.");
+    info!("Open the HTML report to view detailed comparison results and visualizations.");
+    info!("Comparison completed successfully!");
 
     Ok(())
 }
