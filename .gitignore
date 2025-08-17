@@ -23,6 +23,7 @@ Thumbs.db
 *.json
 *.svg
 *.png
+*.html
 
 # Local development
 .env
