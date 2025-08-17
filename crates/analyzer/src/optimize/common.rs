@@ -249,7 +249,7 @@ impl<T> TimedExecution<T> {
     }
 }
 
-/// 並列実行ヘルパー（将来の拡張用）
+/// v1とv2の比較実行
 pub fn execute_comparison(
     geom: &Geometry,
     freqs: &KeyFreq,
@@ -261,10 +261,33 @@ pub fn execute_comparison(
         TimedExecution::time(|| super::v1::solve_layout_v1(&mut geom_v1, freqs, v1_opts));
     let v1_result = v1_execution.result?;
 
-    // v2実行（Phase 0では v1 と同じ）
+    // v2実行（Phase 1設定で指別係数を使用）
     let mut geom_v2 = geom.clone();
+    let v2_opts = super::SolveOptionsV2 {
+        base: v1_opts.clone(),
+        fitts_coeffs: Some(super::config::FittsCoefficientsConfig {
+            enable: true,
+            values: Some(std::collections::HashMap::from([
+                ("LThumb".to_string(), [50.0, 140.0]),
+                ("LIndex".to_string(), [40.0, 120.0]),
+                ("LMiddle".to_string(), [45.0, 130.0]),
+                ("LRing".to_string(), [55.0, 145.0]),
+                ("LPinky".to_string(), [65.0, 160.0]),
+                ("RThumb".to_string(), [50.0, 140.0]),
+                ("RIndex".to_string(), [40.0, 120.0]),
+                ("RMiddle".to_string(), [45.0, 130.0]),
+                ("RRing".to_string(), [55.0, 145.0]),
+                ("RPinky".to_string(), [65.0, 160.0]),
+            ])),
+        }),
+        directional_width: None,
+        layers: None,
+        digits: None,
+        bigrams: None,
+    };
+
     let v2_execution =
-        TimedExecution::time(|| super::v1::solve_layout_v1(&mut geom_v2, freqs, v1_opts));
+        TimedExecution::time(|| super::v2::solve_layout_v2(&mut geom_v2, freqs, &v2_opts));
     let v2_result = v2_execution.result?;
 
     Ok(VersionComparison::new(
