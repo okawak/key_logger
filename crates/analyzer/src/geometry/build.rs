@@ -11,8 +11,12 @@ use crate::error::Result;
 /// Geometry construction: 0.25u grid, fixed letters reservation, homes
 impl Geometry {
     pub fn build(name: GeometryName) -> Result<Self> {
-        let mut cells: Vec<Vec<Cell>> = Vec::with_capacity(MAX_ROW);
-        for row in 0..MAX_ROW {
+        Self::build_with_rows(name, MAX_ROW)
+    }
+
+    pub fn build_with_rows(name: GeometryName, max_rows: usize) -> Result<Self> {
+        let mut cells: Vec<Vec<Cell>> = Vec::with_capacity(max_rows);
+        for row in 0..max_rows {
             let mut row_cells = Vec::with_capacity(MAX_COL_CELLS);
             for col in 0..MAX_COL_CELLS {
                 let finger = if row == 0 {
@@ -46,6 +50,7 @@ impl Geometry {
             cells,
             homes: HashMap::new(),
             key_placements: HashMap::new(),
+            max_layer: 0, // 初期はベースレイヤのみ
         };
 
         // 固定文字（A..Z）を確保
@@ -86,7 +91,9 @@ impl Geometry {
                     x,
                     y,
                     width_u: 1.0,
-                    block_id: None, // 固定キーにはblockIdは不要
+                    block_id: None,     // 固定キーにはblockIdは不要
+                    layer: 0,           // 固定キーはベースレイヤ
+                    modifier_key: None, // 固定キーにはモディファイアなし
                 },
             );
 

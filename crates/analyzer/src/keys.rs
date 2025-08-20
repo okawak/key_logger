@@ -26,6 +26,14 @@ pub enum ArrowKey {
     Right,
 }
 
+/// Modifier keys for layer switching
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum ModifierKey {
+    Layer1,
+    Layer2,
+    Layer3,
+}
+
 /// Optimized key identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum KeyId {
@@ -49,6 +57,7 @@ pub enum KeyId {
     MetaR,
     Function(u8),
     Arrow(ArrowKey),
+    Modifier(ModifierKey),
     // navigation keys
     Home,
     End,
@@ -89,6 +98,7 @@ impl fmt::Display for KeyId {
             MetaR => write!(f, "RightMeta"),
             Function(n) => write!(f, "F{}", n),
             Arrow(a) => write!(f, "Arrow{:?}", a),
+            Modifier(m) => write!(f, "Modifier{:?}", m),
             Home => write!(f, "Home"),
             End => write!(f, "End"),
             PageUp => write!(f, "PageUp"),
@@ -112,6 +122,7 @@ pub struct ParseOptions {
     pub fkeys_max: u8,
     pub include_navigation: bool,
     pub include_numpad: bool,
+    pub include_modifiers: bool,
     pub strict_unknown_keys: bool,
 }
 
@@ -122,6 +133,7 @@ impl Default for ParseOptions {
             fkeys_max: DEFAULT_FKEYS_MAX,
             include_navigation: false,
             include_numpad: false,
+            include_modifiers: false,
             strict_unknown_keys: false,
         }
     }
@@ -130,6 +142,7 @@ impl Default for ParseOptions {
 pub fn parse_key_label(label: &str, opt: &ParseOptions) -> Option<KeyId> {
     use ArrowKey::*;
     use KeyId::*;
+    use ModifierKey::*;
     use SymbolKey::*;
 
     let s = label.trim();
@@ -201,6 +214,16 @@ pub fn parse_key_label(label: &str, opt: &ParseOptions) -> Option<KeyId> {
         "arrowup" | "up" => return Some(Arrow(Up)),
         "arrowdown" | "down" => return Some(Arrow(Down)),
         _ => {}
+    }
+
+    // Modifier keys for layer switching
+    if opt.include_modifiers {
+        match t {
+            "layer1" | "modifier1" => return Some(Modifier(Layer1)),
+            "layer2" | "modifier2" => return Some(Modifier(Layer2)),
+            "layer3" | "modifier3" => return Some(Modifier(Layer3)),
+            _ => {}
+        }
     }
 
     if opt.include_navigation {
@@ -279,6 +302,14 @@ pub fn all_movable_keys(opt: &ParseOptions) -> Vec<KeyId> {
         Arrow(ArrowKey::Right),
     ]);
 
+    if opt.include_modifiers {
+        v.extend([
+            Modifier(ModifierKey::Layer1),
+            Modifier(ModifierKey::Layer2),
+            Modifier(ModifierKey::Layer3),
+        ]);
+    }
+
     if opt.include_navigation {
         v.extend([Home, End, PageUp, PageDown, Insert]);
     }
@@ -302,11 +333,153 @@ pub fn all_movable_keys(opt: &ParseOptions) -> Vec<KeyId> {
 pub fn allowed_widths(k: &KeyId) -> &'static [f32] {
     use KeyId::*;
     match k {
-        Digit(_) | Function(_) | Arrow(_) | NumpadDigit(_) | NumpadAdd | NumpadSubtract
-        | NumpadMultiply | NumpadDivide | NumpadEnter | NumpadEquals | NumpadDecimal => ONE,
+        Digit(_) | Function(_) | Arrow(_) | Modifier(_) | NumpadDigit(_) | NumpadAdd
+        | NumpadSubtract | NumpadMultiply | NumpadDivide | NumpadEnter | NumpadEquals
+        | NumpadDecimal => ONE,
         _ => W_VAR,
     }
 }
 
 static ONE: &[f32] = &[1.00];
 static W_VAR: &[f32] = &[1.00, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50];
+
+// === 共通クラスタ定義（全バージョン共通） ===
+
+/// 矢印キーのクラスタ定義
+/// CLAUDE.md仕様：4個の連結ブロック
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ArrowClusterId {
+    Up = 0,
+    Down = 1,
+    Left = 2,
+    Right = 3,
+}
+
+impl ArrowClusterId {
+    /// 矢印キーの標準配列（4個）
+    pub fn all() -> [ArrowClusterId; 4] {
+        [
+            ArrowClusterId::Up,
+            ArrowClusterId::Down,
+            ArrowClusterId::Left,
+            ArrowClusterId::Right,
+        ]
+    }
+
+    /// ArrowClusterIdからKeyIdに変換
+    pub fn to_key_id(self) -> KeyId {
+        match self {
+            ArrowClusterId::Up => KeyId::Arrow(ArrowKey::Up),
+            ArrowClusterId::Down => KeyId::Arrow(ArrowKey::Down),
+            ArrowClusterId::Left => KeyId::Arrow(ArrowKey::Left),
+            ArrowClusterId::Right => KeyId::Arrow(ArrowKey::Right),
+        }
+    }
+
+    /// KeyIdからArrowClusterIdに変換
+    pub fn from_key_id(key_id: KeyId) -> Option<ArrowClusterId> {
+        match key_id {
+            KeyId::Arrow(ArrowKey::Up) => Some(ArrowClusterId::Up),
+            KeyId::Arrow(ArrowKey::Down) => Some(ArrowClusterId::Down),
+            KeyId::Arrow(ArrowKey::Left) => Some(ArrowClusterId::Left),
+            KeyId::Arrow(ArrowKey::Right) => Some(ArrowClusterId::Right),
+            _ => None,
+        }
+    }
+}
+
+/// 数字キーのクラスタ定義
+/// CLAUDE.md仕様：10個の連結ブロック（1,2,3,4,5,6,7,8,9,0の順序）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DigitClusterId {
+    One = 1,
+    Two = 2,
+    Three = 3,
+    Four = 4,
+    Five = 5,
+    Six = 6,
+    Seven = 7,
+    Eight = 8,
+    Nine = 9,
+    Zero = 0,
+}
+
+impl DigitClusterId {
+    /// 数字キーの標準配列（10個、順序固定）
+    pub fn sequence() -> [DigitClusterId; 10] {
+        [
+            DigitClusterId::One,
+            DigitClusterId::Two,
+            DigitClusterId::Three,
+            DigitClusterId::Four,
+            DigitClusterId::Five,
+            DigitClusterId::Six,
+            DigitClusterId::Seven,
+            DigitClusterId::Eight,
+            DigitClusterId::Nine,
+            DigitClusterId::Zero,
+        ]
+    }
+
+    /// DigitClusterIdからKeyIdに変換
+    pub fn to_key_id(self) -> KeyId {
+        KeyId::Digit(self as u8)
+    }
+
+    /// KeyIdからDigitClusterIdに変換
+    pub fn from_key_id(key_id: KeyId) -> Option<DigitClusterId> {
+        match key_id {
+            KeyId::Digit(1) => Some(DigitClusterId::One),
+            KeyId::Digit(2) => Some(DigitClusterId::Two),
+            KeyId::Digit(3) => Some(DigitClusterId::Three),
+            KeyId::Digit(4) => Some(DigitClusterId::Four),
+            KeyId::Digit(5) => Some(DigitClusterId::Five),
+            KeyId::Digit(6) => Some(DigitClusterId::Six),
+            KeyId::Digit(7) => Some(DigitClusterId::Seven),
+            KeyId::Digit(8) => Some(DigitClusterId::Eight),
+            KeyId::Digit(9) => Some(DigitClusterId::Nine),
+            KeyId::Digit(0) => Some(DigitClusterId::Zero),
+            _ => None,
+        }
+    }
+
+    /// 順序インデックス（0-9）
+    pub fn sequence_index(self) -> usize {
+        match self {
+            DigitClusterId::One => 0,
+            DigitClusterId::Two => 1,
+            DigitClusterId::Three => 2,
+            DigitClusterId::Four => 3,
+            DigitClusterId::Five => 4,
+            DigitClusterId::Six => 5,
+            DigitClusterId::Seven => 6,
+            DigitClusterId::Eight => 7,
+            DigitClusterId::Nine => 8,
+            DigitClusterId::Zero => 9,
+        }
+    }
+}
+
+/// クラスタ設定（矢印・数字共通）
+#[derive(Debug, Clone)]
+pub struct ClusterConfig {
+    /// 矢印クラスタの有効化
+    pub enable_arrows: bool,
+    /// 数字クラスタの有効化
+    pub enable_digits: bool,
+    /// 数字順序の強制（1,2,3,...,9,0）
+    pub enforce_digit_sequence: bool,
+    /// 配置許可行（0-based）
+    pub allowed_rows: Vec<usize>,
+}
+
+impl Default for ClusterConfig {
+    fn default() -> Self {
+        Self {
+            enable_arrows: true,
+            enable_digits: true,
+            enforce_digit_sequence: true,
+            allowed_rows: vec![0, 1], // 上部2行
+        }
+    }
+}

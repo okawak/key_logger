@@ -1,6 +1,5 @@
 pub mod bigrams;
 pub mod digits; // Phase 4 準備
-pub mod fitts; // Phase 1 準備
 pub mod layers; // Phase 3 準備 // Phase 5 準備
 pub mod solver; // v2ソルバー
 

@@ -5,12 +5,16 @@ use crate::geometry::Geometry;
 // モジュール宣言
 pub mod common;
 pub mod config;
+pub mod fitts; // 共通Fitts法則
 pub mod v1;
 pub mod v2;
 
 // Re-exports
 pub use common::{TimedExecution, VersionComparison};
 pub use config::Config;
+pub use fitts::{
+    FingerwiseFittsCoefficients, compute_directional_effective_width, compute_unified_fitts_time,
+};
 pub use v1::solve_layout_v1;
 pub use v2::{SolveOptionsV2, solve_layout_v2};
 
@@ -46,12 +50,26 @@ pub fn solve_layout_from_config(
 ) -> Result<SolutionLayout, KbOptError> {
     match config.solver.version.as_str() {
         "v1" => v1::solve_layout_v1(geom, freqs, &config.to_solve_options_v1()),
+        "v1_advanced" => {
+            if let Some(advanced_opts) = config.to_advanced_options() {
+                v1::solve_layout_advanced(
+                    geom,
+                    freqs,
+                    &config.to_solve_options_v1(),
+                    &advanced_opts,
+                )
+            } else {
+                Err(KbOptError::ConfigError(
+                    "v1_advanced version requires [advanced] configuration section".to_string(),
+                ))
+            }
+        }
         "v2" => {
             let opts_v2 = SolveOptionsV2::from_config(config);
             v2::solve_layout_v2(geom, freqs, &opts_v2)
         }
         _ => Err(KbOptError::ConfigError(format!(
-            "Unknown solver version: {}. Must be 'v1' or 'v2'",
+            "Unknown solver version: {}. Must be 'v1', 'v1_advanced', or 'v2'",
             config.solver.version
         ))),
     }
