@@ -1,0 +1,46 @@
+# 端揃えオプションの簡単なテスト設定
+
+[solver]
+version = "v1"
+timeout_seconds = 30
+output_dir = "figs"
+geometry = "ortho"
+csv_dir = "csv"
+
+[v1]
+a_ms = 0.0
+b_ms = 1.0
+include_fkeys = false
+
+# 基本機能のみ有効化
+enable_fingerwise_fitts = false
+enable_digit_cluster = false  # 数字クラスターを無効化
+enable_directional_width = false
+
+# 基本重み設定
+[v1.weights]
+normal_keys = 1.0
+arrow_and_digit_keys = 1.0
+width_penalty = 0.0
+
+# 数字クラスタ設定（無効）
+[v1.digit_cluster]
+enable = false
+enforce_sequence = false
+allowed_rows = [0]
+enforce_horizontal = false
+align_left_edge = false
+align_right_edge = false
+
+# ソルバー定数設定
+[v1.solver_constants]
+required_arrow_blocks = 4
+max_flow_per_block = 3.0
+required_digit_blocks = 10
+max_digit_flow_per_block = 9.0
+flow_roots = 1.0
+digit_flow_roots = 1.0
+solution_threshold = 0.5
+
+[v2]
+# v2設定（未使用）

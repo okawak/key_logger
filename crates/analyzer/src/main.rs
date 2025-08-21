@@ -4,10 +4,11 @@ use log::{error, info, warn};
 use std::path::PathBuf;
 
 use analyzer::csv_reader::{create_fallback_data, read_key_freq_from_directory};
-use analyzer::geometry::{Geometry, GeometryName};
+use analyzer::geometry::{
+    Geometry, GeometryName, save_layout, save_layout_with_layers_from_geometry,
+};
 use analyzer::keys::ParseOptions;
 use analyzer::optimize::{Config, solve_layout_from_config};
-use analyzer::save_layout;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -49,8 +50,9 @@ fn main() -> Result<()> {
         }
     };
 
-    // Build geometry
-    let mut geom = Geometry::build(geometry_enum)?;
+    // Build geometry with configurable row count
+    let max_rows = config.solver.max_rows.unwrap_or(6); // デフォルト6行
+    let mut geom = Geometry::build_with_rows(geometry_enum, max_rows)?;
 
     // Load key frequency data
     let parse_options = ParseOptions {
@@ -131,10 +133,33 @@ fn main() -> Result<()> {
         }
     }
 
-    // Save visualization
+    // Save standard visualization
     match save_layout(&geom, &key_freq, false, "optimized") {
         Ok(path) => info!("Optimized layout saved to: {}", path.display()),
         Err(e) => error!("Failed to save layout visualization: {}", e),
+    }
+
+    // Save layer visualization using geometry-based approach
+    if geom.max_layer > 0 {
+        info!(
+            "=== Layer Assignments (found {} layers) ===",
+            geom.max_layer
+        );
+        for (key_name, placement) in &geom.key_placements {
+            if placement.layer > 0 {
+                info!(
+                    "Layer {}: {} at ({:.1}, {:.1}) with {:?}",
+                    placement.layer, key_name, placement.x, placement.y, placement.modifier_key
+                );
+            }
+        }
+
+        match save_layout_with_layers_from_geometry(&geom, &key_freq, false, "optimized") {
+            Ok(path) => info!("Optimized layout with layers saved to: {}", path.display()),
+            Err(e) => error!("Failed to save layer visualization: {}", e),
+        }
+    } else {
+        info!("No layer assignments found (max_layer = 0)");
     }
 
     info!("Optimization completed successfully!");

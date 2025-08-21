@@ -53,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    // Build geometry
+    // Build geometry (use default row count for comparison)
     let geom = Geometry::build(geometry_enum)?;
 
     // Load configuration

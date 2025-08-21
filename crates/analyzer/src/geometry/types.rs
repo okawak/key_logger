@@ -64,17 +64,20 @@ pub enum PlacementType {
     Fixed,     // 固定キー（アルファベットなど）
     Optimized, // 最適化されたキー
     Arrow,     // 矢印キー
+    Digit,     // 数字キー
 }
 
 /// キー配置情報（通常キーと矢印キー統一）
 #[derive(Debug, Clone)]
 pub struct KeyPlacement {
     pub placement_type: PlacementType,
-    pub key_id: Option<KeyId>,     // 定義されたキーID（オプション）
-    pub x: f32,                    // x coordinate [mm]
-    pub y: f32,                    // y coordinate [mm]
-    pub width_u: f32,              // キー幅 [u]
-    pub block_id: Option<BlockId>, // 矢印キー用のブロックID（オプション）
+    pub key_id: Option<KeyId>,        // 定義されたキーID（オプション）
+    pub x: f32,                       // x coordinate [mm]
+    pub y: f32,                       // y coordinate [mm]
+    pub width_u: f32,                 // キー幅 [u]
+    pub block_id: Option<BlockId>,    // 矢印キー用のブロックID（オプション）
+    pub layer: u8,                    // レイヤ番号（0=ベースレイヤ、1以上=モディファイアレイヤ）
+    pub modifier_key: Option<String>, // レイヤの場合のモディファイアキー名
 }
 
 /// Overall geometry
@@ -84,6 +87,7 @@ pub struct Geometry {
     pub cells: Vec<Vec<Cell>>,                         // cells[row][col]
     pub homes: HashMap<Finger, (f32, f32)>,            // Finger → home coordinates [R^2]
     pub key_placements: HashMap<String, KeyPlacement>, // store all key placements
+    pub max_layer: u8,                                 // 最大レイヤ番号（最適化結果に応じて変動）
 }
 
 /// Candidate set for general keys (start cell and allowed widths)

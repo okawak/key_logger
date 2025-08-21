@@ -257,8 +257,9 @@ pub fn execute_comparison(
 ) -> Result<VersionComparison, KbOptError> {
     // v1実行
     let mut geom_v1 = geom.clone();
-    let v1_execution =
-        TimedExecution::time(|| super::v1::solve_layout_v1(&mut geom_v1, freqs, v1_opts));
+    let v1_execution = TimedExecution::time(|| {
+        super::v1::solve_layout_v1(&mut geom_v1, freqs, v1_opts, &super::v1::Options::default())
+    });
     let v1_result = v1_execution.result?;
 
     // v2実行（Phase 1設定で指別係数を使用）

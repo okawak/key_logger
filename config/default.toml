@@ -1,55 +1,180 @@
+# キーボード配列最適化 - デフォルト設定
+# v1ソルバーを使用した標準的な設定
+
 [solver]
-version = "v1"           # "v1" | "v2"
+version = "v1"
+timeout_seconds = 300
 output_dir = "figs"
-geometry = "row-stagger" # "row-stagger" | "ortho" | "column-stagger"
+geometry = "ortho"
 csv_dir = "csv"
 
 [v1]
+# Fitts法則パラメータ
+a_ms = 50.0
+b_ms = 150.0
 include_fkeys = false
-a_ms = 0.0
-b_ms = 1.0
+
+# 拡張機能の有効化
+enable_fingerwise_fitts = true
+enable_digit_cluster = true
+enable_directional_width = true
+
+# 最適化重み設定
+[v1.weights]
+normal_keys = 1.0
+arrow_and_digit_keys = 1.0
+width_penalty = 0.01
+
+# 指別Fitts係数設定
+[v1.fingerwise_coeffs]
+[v1.fingerwise_coeffs.LIndex]
+a_ms = 40.0
+b_ms = 120.0
+
+[v1.fingerwise_coeffs.RIndex]
+a_ms = 40.0
+b_ms = 120.0
+
+[v1.fingerwise_coeffs.LMiddle]
+a_ms = 45.0
+b_ms = 130.0
+
+[v1.fingerwise_coeffs.RMiddle]
+a_ms = 45.0
+b_ms = 130.0
+
+[v1.fingerwise_coeffs.LRing]
+a_ms = 55.0
+b_ms = 145.0
+
+[v1.fingerwise_coeffs.RRing]
+a_ms = 55.0
+b_ms = 145.0
+
+[v1.fingerwise_coeffs.LPinky]
+a_ms = 65.0
+b_ms = 160.0
+
+[v1.fingerwise_coeffs.RPinky]
+a_ms = 65.0
+b_ms = 160.0
+
+[v1.fingerwise_coeffs.LThumb]
+a_ms = 50.0
+b_ms = 140.0
+
+[v1.fingerwise_coeffs.RThumb]
+a_ms = 50.0
+b_ms = 140.0
+
+# 数字クラスタ設定
+[v1.digit_cluster]
+enable = true
+enforce_sequence = true
+allowed_rows = [0, 1]
+enforce_horizontal = true
+# 端揃えオプション
+align_left_edge = false    # 左端揃え - 全行の左端位置を一致
+align_right_edge = false   # 右端揃え - 全行の右端位置を一致
+
+# ソルバー定数設定
+[v1.solver_constants]
+required_arrow_blocks = 4
+max_flow_per_block = 3.0
+required_digit_blocks = 10
+max_digit_flow_per_block = 9.0
+flow_roots = 1.0
+digit_flow_roots = 1.0
+solution_threshold = 0.5
 
 [v2]
-# Phase 1: 指別Fitts係数
-[v2.fitts_coefficients]
-enable = false
-# 各指の初期値（Phase 1で実装）
-[v2.fitts_coefficients.values]
-LThumb = [50.0, 150.0]  # [a_ms, b_ms]
-LIndex = [40.0, 120.0]
-LMiddle = [45.0, 130.0]
-LRing = [55.0, 145.0]
-LPinky = [65.0, 160.0]
-RThumb = [50.0, 150.0]
-RIndex = [40.0, 120.0]
-RMiddle = [45.0, 130.0]
-RRing = [55.0, 145.0]
-RPinky = [65.0, 160.0]
+# v2設定（未実装）
 
-# Phase 2: 方向依存幅
-[v2.directional_width]
-enable = false
+# 標準的な4×12 Ortholinear レイアウト
+[geometry]
+name = "ortho"
 
-# Phase 3: レイヤシステム
-[v2.layers]
-enable = false
-modifier_penalty_ms = 10.0
-# モディファイア配置可能位置（Phase 3で詳細化）
-modifier_rows = [3, 4] # 親指行等
+# 行0: 数字・記号行
+[[geometry.rows]]
+y = 0.0
+cells = [
+    { col = 0, finger = "LPinky" },
+    { col = 1, finger = "LRing" },
+    { col = 2, finger = "LMiddle" },
+    { col = 3, finger = "LIndex" },
+    { col = 4, finger = "LIndex" },
+    { col = 5, finger = "LIndex" },
+    { col = 6, finger = "RIndex" },
+    { col = 7, finger = "RIndex" },
+    { col = 8, finger = "RMiddle" },
+    { col = 9, finger = "RRing" },
+    { col = 10, finger = "RPinky" },
+    { col = 11, finger = "RPinky" },
+]
 
-# Phase 4: 数値クラスター
-[v2.digit_cluster]
-enable = false
-enforce_order = true
-allowed_rows = [0, 1] # 上段、ファンクション行
+# 行1: QWERTY行（固定）
+[[geometry.rows]]
+y = 1.0
+cells = [
+    { col = 0, finger = "LPinky", occupied = true },  # Q
+    { col = 1, finger = "LRing", occupied = true },   # W
+    { col = 2, finger = "LMiddle", occupied = true }, # E
+    { col = 3, finger = "LIndex", occupied = true },  # R
+    { col = 4, finger = "LIndex", occupied = true },  # T
+    { col = 5, finger = "LIndex" },
+    { col = 6, finger = "RIndex" },
+    { col = 7, finger = "RIndex", occupied = true },  # Y
+    { col = 8, finger = "RMiddle", occupied = true }, # U
+    { col = 9, finger = "RRing", occupied = true },   # I
+    { col = 10, finger = "RPinky", occupied = true }, # O
+    { col = 11, finger = "RPinky", occupied = true }, # P
+]
 
-# Phase 5: ビグラム近似
-[v2.bigrams]
-enable = false
-approach = "DirectionalBucket" # "TopMLinearization"
-min_frequency = 10.0
+# 行2: ASDF行（固定・ホーム行）
+[[geometry.rows]]
+y = 2.0
+cells = [
+    { col = 0, finger = "LPinky", occupied = true },  # A
+    { col = 1, finger = "LRing", occupied = true },   # S
+    { col = 2, finger = "LMiddle", occupied = true }, # D
+    { col = 3, finger = "LIndex", occupied = true },  # F
+    { col = 4, finger = "LIndex", occupied = true },  # G
+    { col = 5, finger = "LIndex" },
+    { col = 6, finger = "RIndex" },
+    { col = 7, finger = "RIndex", occupied = true },  # H
+    { col = 8, finger = "RMiddle", occupied = true }, # J
+    { col = 9, finger = "RRing", occupied = true },   # K
+    { col = 10, finger = "RPinky", occupied = true }, # L
+    { col = 11, finger = "RPinky" },
+]
 
-[comparison]
-enable_parallel = true
-save_report = true
-report_format = "html" # "html" | "json" | "csv"
+# 行3: ZXCV行（固定）
+[[geometry.rows]]
+y = 3.0
+cells = [
+    { col = 0, finger = "LPinky", occupied = true },  # Z
+    { col = 1, finger = "LRing", occupied = true },   # X
+    { col = 2, finger = "LMiddle", occupied = true }, # C
+    { col = 3, finger = "LIndex", occupied = true },  # V
+    { col = 4, finger = "LIndex", occupied = true },  # B
+    { col = 5, finger = "LIndex" },
+    { col = 6, finger = "RIndex" },
+    { col = 7, finger = "RIndex", occupied = true },  # N
+    { col = 8, finger = "RMiddle", occupied = true }, # M
+    { col = 9, finger = "RRing" },
+    { col = 10, finger = "RPinky" },
+    { col = 11, finger = "RPinky" },
+]
+
+# ホームポジション（4×12 Ortholinear、19.05mm間隔）
+[geometry.homes]
+LPinky = [0.0, 38.1]    # 行2 (ASDF行) の左小指
+LRing = [19.05, 38.1]   # 行2 の左薬指
+LMiddle = [38.1, 38.1]  # 行2 の左中指
+LIndex = [57.15, 38.1]  # 行2 の左人差し指
+LThumb = [95.25, 57.15] # 下部中央
+RThumb = [114.3, 57.15] # 下部中央
+RIndex = [133.35, 38.1] # 行2 の右人差し指
+RMiddle = [152.4, 38.1] # 行2 の右中指
+RRing = [171.45, 38.1]  # 行2 の右薬指
+RPinky = [190.5, 38.1]  # 行2 の右小指

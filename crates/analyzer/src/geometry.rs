@@ -7,4 +7,6 @@ pub mod zoning;
 
 pub use sets::OptimizationSets;
 pub use types::{Cell, CellId, Finger, Geometry, GeometryName, KeyCandidates};
-pub use visualization::save_layout;
+pub use visualization::{
+    save_layout, save_layout_with_layers, save_layout_with_layers_from_geometry,
+};
