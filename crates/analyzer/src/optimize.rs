@@ -49,27 +49,16 @@ pub fn solve_layout_from_config(
     config: &Config,
 ) -> Result<SolutionLayout, KbOptError> {
     match config.solver.version.as_str() {
-        "v1" => v1::solve_layout_v1(geom, freqs, &config.to_solve_options_v1()),
-        "v1_advanced" => {
-            if let Some(advanced_opts) = config.to_advanced_options() {
-                v1::solve_layout_advanced(
-                    geom,
-                    freqs,
-                    &config.to_solve_options_v1(),
-                    &advanced_opts,
-                )
-            } else {
-                Err(KbOptError::ConfigError(
-                    "v1_advanced version requires [advanced] configuration section".to_string(),
-                ))
-            }
+        "v1" => {
+            let v1_opts = config.to_v1_options();
+            v1::solve_layout_v1(geom, freqs, &config.to_solve_options_v1(), &v1_opts)
         }
         "v2" => {
             let opts_v2 = SolveOptionsV2::from_config(config);
             v2::solve_layout_v2(geom, freqs, &opts_v2)
         }
         _ => Err(KbOptError::ConfigError(format!(
-            "Unknown solver version: {}. Must be 'v1', 'v1_advanced', or 'v2'",
+            "Unknown solver version: {}. Must be 'v1' or 'v2'",
             config.solver.version
         ))),
     }

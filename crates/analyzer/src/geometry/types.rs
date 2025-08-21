@@ -64,6 +64,7 @@ pub enum PlacementType {
     Fixed,     // 固定キー（アルファベットなど）
     Optimized, // 最適化されたキー
     Arrow,     // 矢印キー
+    Digit,     // 数字キー
 }
 
 /// キー配置情報（通常キーと矢印キー統一）

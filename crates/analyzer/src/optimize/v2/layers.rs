@@ -162,7 +162,6 @@ pub fn compute_chord_time(
         .get(&main_finger)
         .cloned()
         .unwrap_or(main_block_center);
-    let _main_distance = crate::constants::euclid_distance(main_block_center, main_home) as f64;
     // TODO: 方向角計算の実装
     // let main_direction = compute_direction_angle(main_home, main_block_center);
 
@@ -172,8 +171,6 @@ pub fn compute_chord_time(
         .get(&modifier_finger)
         .cloned()
         .unwrap_or(modifier_block_center);
-    let _modifier_distance =
-        crate::constants::euclid_distance(modifier_block_center, modifier_home) as f64;
     // let modifier_direction = compute_direction_angle(modifier_home, modifier_block_center);
 
     // 各キーの単打時間を計算（共通Fitts機能を使用）
@@ -211,13 +208,10 @@ pub fn compute_chord_time(
         .copied()
         .unwrap_or(0.0); // デフォルトは並行性なし
 
-    // 同時押し時間の計算（a値重複問題を修正）
-    // オリジナル: T^chord = T_main + T_modifier - θ·min(T_main, T_modifier) + τ_mod
-    // 修正版: a値の重複を避けるため、max(T_main, T_modifier)ベースに変更
-    // T^chord = max(T_main, T_modifier) + (1-θ)·min(T_main, T_modifier) + τ_mod
-    let t_max = t_main.max(t_modifier);
+    // 同時押し時間の計算（v2仕様に準拠）
+    // T^chord = T_main + T_modifier - θ·min(T_main, T_modifier) + τ_mod
     let t_min = t_main.min(t_modifier);
-    t_max + (1.0 - theta) * t_min + layer_cfg.modifier_penalty_ms
+    t_main + t_modifier - theta * t_min + layer_cfg.modifier_penalty_ms
 }
 
 /// レイヤ制約の生成

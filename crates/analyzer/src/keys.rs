@@ -471,6 +471,12 @@ pub struct ClusterConfig {
     pub enforce_digit_sequence: bool,
     /// 配置許可行（0-based）
     pub allowed_rows: Vec<usize>,
+    /// 水平配置の強制
+    pub enforce_horizontal: bool,
+    /// 左端揃え - 全ての行の左端位置を一致させる
+    pub align_left_edge: bool,
+    /// 右端揃え - 全ての行の右端位置を一致させる
+    pub align_right_edge: bool,
 }
 
 impl Default for ClusterConfig {
@@ -480,6 +486,9 @@ impl Default for ClusterConfig {
             enable_digits: true,
             enforce_digit_sequence: true,
             allowed_rows: vec![0, 1], // 上部2行
+            enforce_horizontal: false,
+            align_left_edge: false,
+            align_right_edge: false,
         }
     }
 }

@@ -140,6 +140,7 @@ impl Colors {
     pub const LIGHT_BLUE: Rgb<u8> = Rgb([121, 166, 242]);
     pub const GREEN: Rgb<u8> = Rgb([0, 200, 0]);
     pub const LIGHT_GREEN: Rgb<u8> = Rgb([154, 230, 113]);
+    pub const LIGHT_YELLOW: Rgb<u8> = Rgb([255, 255, 128]); // 数字キー用の色
     pub const RED: Rgb<u8> = Rgb([255, 0, 0]);
     pub const ORANGE: Rgb<u8> = Rgb([255, 165, 0]);
     pub const LIGHT_PURPLE: Rgb<u8> = Rgb([200, 150, 255]); // レイヤキー用の色
@@ -401,6 +402,23 @@ fn render_all_keys(renderer: &mut Renderer, geom: &Geometry, freqs: &KeyFreq) ->
                     Colors::BLACK,
                 );
             }
+            PlacementType::Digit => {
+                // 数字キーは黄色の塗りつぶし
+                renderer.draw_rect(
+                    key_left_px,
+                    key_top_px,
+                    width_px,
+                    height_px,
+                    Colors::LIGHT_YELLOW,
+                );
+                renderer.draw_rect_outline(
+                    key_left_px,
+                    key_top_px,
+                    width_px,
+                    height_px,
+                    Colors::BLACK,
+                );
+            }
         }
 
         // 記号を表示
@@ -433,6 +451,51 @@ fn render_all_keys(renderer: &mut Renderer, geom: &Geometry, freqs: &KeyFreq) ->
             "Delete" => "Del",
             "CapsLock" => "Caps",
             "Escape" => "Esc",
+            "Tab" => "Tab",
+            "Enter" => "Enter",
+            // 数字キーの対応を追加
+            "Digit(0)" => "0",
+            "Digit(1)" => "1",
+            "Digit(2)" => "2",
+            "Digit(3)" => "3",
+            "Digit(4)" => "4",
+            "Digit(5)" => "5",
+            "Digit(6)" => "6",
+            "Digit(7)" => "7",
+            "Digit(8)" => "8",
+            "Digit(9)" => "9",
+            // KeyIdのDebug形式に対応
+            s if s.starts_with("Digit(") => {
+                // "Digit(3)" -> "3"
+                s.trim_start_matches("Digit(").trim_end_matches(")")
+            }
+            s if s.starts_with("Symbol(") => {
+                // "Symbol(Comma)" -> "," など、個別マッピングが必要
+                match s {
+                    "Symbol(Comma)" => ",",
+                    "Symbol(Period)" => ".",
+                    "Symbol(Slash)" => "/",
+                    "Symbol(Semicolon)" => ";",
+                    "Symbol(Quote)" => "'",
+                    "Symbol(LBracket)" => "[",
+                    "Symbol(RBracket)" => "]",
+                    "Symbol(Backslash)" => r"\",
+                    "Symbol(Backtick)" => "`",
+                    "Symbol(Minus)" => "-",
+                    "Symbol(Equal)" => "=",
+                    _ => s,
+                }
+            }
+            s if s.starts_with("Arrow(") => {
+                // "Arrow(Up)" -> "↑"
+                match s {
+                    "Arrow(Up)" => "↑",
+                    "Arrow(Down)" => "↓",
+                    "Arrow(Left)" => "←",
+                    "Arrow(Right)" => "→",
+                    _ => s,
+                }
+            }
             _ => key_name.as_str(),
         };
 
@@ -826,6 +889,23 @@ fn render_all_keys_with_offset(
                     Colors::BLACK,
                 );
             }
+            PlacementType::Digit => {
+                // 数字キーは黄色の塗りつぶし
+                renderer.draw_rect(
+                    key_left_px,
+                    key_top_px,
+                    width_px,
+                    height_px,
+                    Colors::LIGHT_YELLOW,
+                );
+                renderer.draw_rect_outline(
+                    key_left_px,
+                    key_top_px,
+                    width_px,
+                    height_px,
+                    Colors::BLACK,
+                );
+            }
         }
 
         // 記号を表示
@@ -858,6 +938,51 @@ fn render_all_keys_with_offset(
             "Delete" => "Del",
             "CapsLock" => "Caps",
             "Escape" => "Esc",
+            "Tab" => "Tab",
+            "Enter" => "Enter",
+            // 数字キーの対応を追加
+            "Digit(0)" => "0",
+            "Digit(1)" => "1",
+            "Digit(2)" => "2",
+            "Digit(3)" => "3",
+            "Digit(4)" => "4",
+            "Digit(5)" => "5",
+            "Digit(6)" => "6",
+            "Digit(7)" => "7",
+            "Digit(8)" => "8",
+            "Digit(9)" => "9",
+            // KeyIdのDebug形式に対応
+            s if s.starts_with("Digit(") => {
+                // "Digit(3)" -> "3"
+                s.trim_start_matches("Digit(").trim_end_matches(")")
+            }
+            s if s.starts_with("Symbol(") => {
+                // "Symbol(Comma)" -> "," など、個別マッピングが必要
+                match s {
+                    "Symbol(Comma)" => ",",
+                    "Symbol(Period)" => ".",
+                    "Symbol(Slash)" => "/",
+                    "Symbol(Semicolon)" => ";",
+                    "Symbol(Quote)" => "'",
+                    "Symbol(LBracket)" => "[",
+                    "Symbol(RBracket)" => "]",
+                    "Symbol(Backslash)" => r"\",
+                    "Symbol(Backtick)" => "`",
+                    "Symbol(Minus)" => "-",
+                    "Symbol(Equal)" => "=",
+                    _ => s,
+                }
+            }
+            s if s.starts_with("Arrow(") => {
+                // "Arrow(Up)" -> "↑"
+                match s {
+                    "Arrow(Up)" => "↑",
+                    "Arrow(Down)" => "↓",
+                    "Arrow(Left)" => "←",
+                    "Arrow(Right)" => "→",
+                    _ => s,
+                }
+            }
             _ => key_name.as_str(),
         };
 

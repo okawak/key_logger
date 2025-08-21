@@ -12,11 +12,11 @@ pub mod solver;
 pub use solver::{
     ARROW_KEYS, Block, Cand, build_adjacency_from_precompute, build_blocks_from_precompute,
     build_candidates_from_precompute, generate_v1_arrow_region, generate_v1_key_candidates,
-    is_arrow, is_digit_or_f, solve_layout_v1, width_candidates_for_key,
+    is_arrow, is_digit_or_f, width_candidates_for_key,
 };
 
-// v1 Advanced features
+// v1 features
 pub use solver::{
-    AdvancedOptions, OptimizationVarsConfig, OptimizationWeights, RowFlexibilityConfig,
-    solve_layout_advanced,
+    OptimizationVarsConfig, OptimizationWeights, Options, RowFlexibilityConfig, SolverConstants,
+    solve_layout_v1,
 };

@@ -215,7 +215,6 @@ pub fn solve_layout_integrated_v2(
             blk.center.0 * crate::constants::U2MM as f32,
             blk.center.1 * crate::constants::U2MM as f32,
         );
-        let _center_home_dist = crate::constants::euclid_distance(center_mm, home) as f64;
         // 方向計算は簡素化（v2では中心から計算）
         let t_ms = crate::optimize::fitts::compute_unified_fitts_time(
             finger,
@@ -277,8 +276,6 @@ pub fn solve_layout_integrated_v2(
                         blk.center.0 * crate::constants::U2MM as f32,
                         blk.center.1 * crate::constants::U2MM as f32,
                     );
-                    let _center_home_dist =
-                        crate::constants::euclid_distance(center_mm, home) as f64;
                     // 方向計算は簡素化
                     let t_ms = crate::optimize::fitts::compute_unified_fitts_time(
                         finger,
@@ -531,10 +528,10 @@ pub fn solve_layout_integrated_v2(
         .retain(|_, p| p.placement_type == PlacementType::Fixed);
 
     // 通常キーの配置を追加
-    let _regular_keys_placed = apply_regular_key_placements_v2(geom, &sol, &x_vars, &cands);
+    apply_regular_key_placements_v2(geom, &sol, &x_vars, &cands);
 
     // 矢印キーの配置を追加
-    let _arrow_keys_placed = apply_arrow_key_placements_v2(geom, &sol, &m_vars, &blocks);
+    apply_arrow_key_placements_v2(geom, &sol, &m_vars, &blocks);
 
     // Phase 3: レイヤ情報をGeometryに追加
     if let Some(ref layer_vars) = layer_vars {
@@ -592,8 +589,6 @@ fn build_directional_aware_candidates(
                         cx * crate::constants::U2MM as f32,
                         cy * crate::constants::U2MM as f32,
                     );
-                    let _distance_mm =
-                        crate::constants::euclid_distance(key_center_mm, home) as f64;
                     // 方向計算は簡素化
                     let t_ms = crate::optimize::fitts::compute_unified_fitts_time(
                         finger,
