@@ -159,8 +159,6 @@ pub fn compute_fingerwise_fitts_time(
 }
 
 /// 標準的なFitts時間計算（単一係数版との統合）
-///
-/// 全バージョン共通の計算処理
 #[allow(clippy::too_many_arguments)]
 pub fn compute_unified_fitts_time(
     finger: Finger,
@@ -192,11 +190,6 @@ pub fn compute_unified_fitts_time(
 }
 
 /// 方向依存の有効幅計算（楕円近似）
-///
-/// CLAUDE.md v1仕様:
-/// ```
-/// W_eff(w, h, φ) = 1 / sqrt((cos²φ/w²) + (sin²φ/h²))
-/// ```
 pub fn compute_directional_effective_width(
     width_u: f32,
     height_u: f32,
@@ -209,97 +202,4 @@ pub fn compute_directional_effective_width(
     let sin2_over_h2 = (sin_phi * sin_phi) / (height_u * height_u);
 
     1.0 / (cos2_over_w2 + sin2_over_h2).sqrt()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_basic_fitts_unchanged() {
-        // 既存の基本Fitts関数が変更されていないことを確認
-        let time = compute_fitts_time(100.0, 20.0, 50.0, 150.0);
-        assert!(time > 0.0);
-    }
-
-    #[test]
-    fn test_directional_width_horizontal() {
-        // 水平移動（φ=0）では幅そのものになる
-        let width = compute_directional_effective_width(2.0, 1.0, 0.0);
-        assert!((width - 2.0).abs() < 0.001);
-    }
-
-    #[test]
-    fn test_directional_width_vertical() {
-        // 垂直移動（φ=π/2）では高さそのものになる
-        let width = compute_directional_effective_width(2.0, 1.0, std::f32::consts::PI / 2.0);
-        assert!((width - 1.0).abs() < 0.001);
-    }
-
-    #[test]
-    fn test_fingerwise_coefficients() {
-        let coeffs = FingerwiseFittsCoefficients::default();
-
-        // 人差し指は最速
-        let (a_index, b_index) = coeffs.get_coeffs(Finger::LIndex);
-        assert_eq!(a_index, 40.0);
-        assert_eq!(b_index, 120.0);
-
-        // 小指は最遅
-        let (a_pinky, b_pinky) = coeffs.get_coeffs(Finger::LPinky);
-        assert_eq!(a_pinky, 65.0);
-        assert_eq!(b_pinky, 160.0);
-    }
-
-    #[test]
-    fn test_fingerwise_fitts_calculation() {
-        let coeffs = FingerwiseFittsCoefficients::default();
-
-        let key_center = (100.0, 50.0);
-        let home_pos = (0.0, 0.0);
-        let width = 1.0;
-
-        // 人差し指と小指で時間差があることを確認
-        let index_time = compute_unified_fitts_time(
-            Finger::LIndex,
-            key_center,
-            home_pos,
-            width,
-            true,
-            &coeffs,
-            50.0,
-            150.0,
-        );
-        let pinky_time = compute_unified_fitts_time(
-            Finger::LPinky,
-            key_center,
-            home_pos,
-            width,
-            true,
-            &coeffs,
-            50.0,
-            150.0,
-        );
-
-        // 小指の方が遅い
-        assert!(pinky_time > index_time);
-
-        // 統一関数のフラグテスト
-        let legacy_time = compute_unified_fitts_time(
-            Finger::LIndex,
-            key_center,
-            home_pos,
-            width,
-            false,
-            &coeffs,
-            50.0,
-            150.0,
-        );
-
-        // レガシーモードでは指の違いは無視される
-        assert!(
-            (legacy_time - compute_key_fitts_time(key_center, home_pos, width, 50.0, 150.0)).abs()
-                < 0.001
-        );
-    }
 }

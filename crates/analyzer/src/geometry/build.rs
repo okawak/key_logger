@@ -1,20 +1,40 @@
-use std::collections::HashMap;
-
-use super::{
-    builders::{GeometryBuilder, ortho::OrthoBuilder, row_stagger::RowStaggerBuilder},
-    types::*,
-    zoning::finger_from_x,
+use crate::{
+    config::Config,
+    constants::{COLUMN_STAGGER, MAX_COL_CELLS, ORTHO, ROW_STAGGER, U2CELL, cell_to_key_center},
+    error::{KbOptError, Result},
+    geometry::{
+        builders::{GeometryBuilder, ortho::OrthoBuilder, row_stagger::RowStaggerBuilder},
+        types::*,
+        zoning::finger_from_x,
+    },
+    keys::str_to_keyid,
 };
-use crate::constants::{MAX_COL_CELLS, MAX_ROW, U2CELL, cell_to_key_center};
-use crate::error::Result;
+
+use std::collections::HashMap;
 
 /// Geometry construction: 0.25u grid, fixed letters reservation, homes
 impl Geometry {
-    pub fn build(name: GeometryName) -> Result<Self> {
-        Self::build_with_rows(name, MAX_ROW)
-    }
+    pub fn build(config: &Config) -> Result<Self> {
+        let name = match config.solver.geometry.as_str() {
+            ROW_STAGGER => GeometryName::RowStagger,
+            ORTHO => GeometryName::Ortho,
+            COLUMN_STAGGER => {
+                return Err(KbOptError::Config(format!(
+                    "{COLUMN_STAGGER} geometry is not yet implemented.",
+                )));
+            }
+            _ => {
+                unreachable!(); // validationで既にチェック済み
+            }
+        };
+        let max_rows = config.solver.max_rows;
+        let max_layers = match config.solver.version.as_str() {
+            "v1" => 1, // v1はレイヤなし
+            "v2" => config.v2.as_ref().unwrap().max_layers,
+            "v3" => config.v3.as_ref().unwrap().max_layers,
+            _ => unreachable!(), // validationで既にチェック済み
+        };
 
-    pub fn build_with_rows(name: GeometryName, max_rows: usize) -> Result<Self> {
         let mut cells: Vec<Vec<Cell>> = Vec::with_capacity(max_rows);
         for row in 0..max_rows {
             let mut row_cells = Vec::with_capacity(MAX_COL_CELLS);
@@ -50,23 +70,23 @@ impl Geometry {
             cells,
             homes: HashMap::new(),
             key_placements: HashMap::new(),
-            max_layer: 0, // 初期はベースレイヤのみ
+            max_layers,
         };
 
         // 固定文字（A..Z）を確保
-        geom.reserve_letter_cells();
+        geom.reserve_cells(&config);
         // ホーム位置（ASDF / JKL;）
-        geom.init_homes();
+        geom.init_homes(&config);
 
         Ok(geom)
     }
 
     /// Reserve letter blocks (using builder pattern)
-    fn reserve_letter_cells(&mut self) {
+    fn reserve_cells(&mut self, config: &Config) {
         // row-idx [u], start-cell [cell], Vec of key names
         let positions = match self.name {
-            GeometryName::RowStagger => RowStaggerBuilder::get_letter_block_positions(),
-            GeometryName::Ortho => OrthoBuilder::get_letter_block_positions(),
+            GeometryName::RowStagger => RowStaggerBuilder::get_fixed_key_positions(config),
+            GeometryName::Ortho => OrthoBuilder::get_fixed_key_positions(config),
         };
 
         // 行ごとの処理
@@ -80,20 +100,19 @@ impl Geometry {
         // 1u key
         for (col_idx, name) in names.iter().enumerate() {
             // cell unit
-            let col = start_cell + col_idx * U2CELL;
+            let col = start_cell + col_idx * U2CELL; // 1u key
             let (x, y) = cell_to_key_center(row_idx, col, 1.0);
 
             self.key_placements.insert(
                 name.to_string(),
                 KeyPlacement {
                     placement_type: PlacementType::Fixed,
-                    key_id: None, // アルファベットキーはKeyIdにないためNone
+                    key_id: str_to_keyid(name),
                     x,
                     y,
                     width_u: 1.0,
-                    block_id: None,     // 固定キーにはblockIdは不要
-                    layer: 0,           // 固定キーはベースレイヤ
-                    modifier_key: None, // 固定キーにはモディファイアなし
+                    block_id: None, // 固定キーにはblockIdは不要
+                    layer: 0,       // 固定キーはベースレイヤ
                 },
             );
 
@@ -105,10 +124,10 @@ impl Geometry {
     }
 
     /// Home positions (geometry-specific)
-    fn init_homes(&mut self) {
+    fn init_homes(&mut self, config: &Config) {
         self.homes = match self.name {
-            GeometryName::RowStagger => RowStaggerBuilder::build_home_positions(),
-            GeometryName::Ortho => OrthoBuilder::build_home_positions(),
+            GeometryName::RowStagger => RowStaggerBuilder::build_home_positions(config),
+            GeometryName::Ortho => OrthoBuilder::build_home_positions(config),
         };
     }
 }

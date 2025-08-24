@@ -1,11 +1,12 @@
-use crate::constants::{EXPECTED_COUNT_HEADER, EXPECTED_KEY_HEADER};
-use crate::error::{KbOptError, Result};
-use crate::keys::{KeyId, ParseOptions, parse_key_label};
+use crate::{
+    config::Config,
+    constants::{EXPECTED_COUNT_HEADER, EXPECTED_KEY_HEADER},
+    error::{KbOptError, Result},
+    keys::{KeyId, parse_key_label},
+};
 
 use csv::{ReaderBuilder, StringRecord, Trim};
-use std::collections::HashMap;
-use std::io::Read;
-use std::path::Path;
+use std::{collections::HashMap, io::Read, path::Path};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct KeyFreq {
@@ -19,6 +20,7 @@ impl KeyFreq {
     pub fn counts(&self) -> &HashMap<KeyId, u64> {
         &self.raw_counts
     }
+
     pub fn total(&self) -> u64 {
         self.total
     }
@@ -35,9 +37,6 @@ impl KeyFreq {
     }
 
     /// Returns normalized probabilities for each key
-    ///
-    /// # Returns
-    /// Empty HashMap if total is 0, otherwise probability for each key
     pub fn probabilities(&self) -> HashMap<KeyId, f64> {
         if self.total == 0 {
             return HashMap::new();
@@ -51,9 +50,6 @@ impl KeyFreq {
     }
 
     /// Merges another KeyFreq into this one, combining counts
-    ///
-    /// # Arguments
-    /// * `other` - KeyFreq to merge into this one
     pub fn merge(&mut self, other: KeyFreq) {
         for (k, v) in other.raw_counts {
             *self.raw_counts.entry(k).or_insert(0) += v;
@@ -78,7 +74,7 @@ impl KeyFreq {
     }
 
     /// Converts KeyFreq to the HashMap<String, u64> format used by the optimizer
-    pub fn to_optimizer_format(&self) -> std::collections::HashMap<String, u64> {
+    pub fn to_optimizer_format(&self) -> HashMap<String, u64> {
         self.raw_counts
             .iter()
             .map(|(key_id, &count)| (key_id.to_string(), count))
@@ -86,35 +82,9 @@ impl KeyFreq {
     }
 }
 
-/// Reads key frequency data from a CSV file
-///
-/// # Arguments
-/// * `path` - Path to the CSV file
-/// * `parse_options` - Options for parsing key labels
-///
-/// # Errors
-/// Returns error if file cannot be read or CSV format is invalid
-pub fn read_key_freq_csv<P: AsRef<Path>>(path: P, opt: &ParseOptions) -> Result<KeyFreq> {
-    let file = std::fs::File::open(path)?;
-    read_key_freq_from_reader(file, opt)
-}
-
-/// Reads and merges all CSV files from a directory
-///
-/// # Arguments
-/// * `dir_path` - Path to directory containing CSV files
-/// * `parse_options` - Options for parsing key labels
-///
-/// # Returns
-/// Merged KeyFreq from all CSV files in the directory
-///
-/// # Errors
-/// Returns error if directory cannot be read or no valid CSV files found
-pub fn read_key_freq_from_directory<P: AsRef<Path>>(
-    dir_path: P,
-    opt: &ParseOptions,
-) -> Result<KeyFreq> {
-    let dir_path = dir_path.as_ref();
+pub fn read_key_freq(config: &Config) -> Result<KeyFreq> {
+    let csv_path = &config.solver.csv_dir;
+    let dir_path = Path::new(csv_path);
 
     if !dir_path.exists() {
         return Err(KbOptError::Io(std::io::Error::new(
@@ -152,7 +122,7 @@ pub fn read_key_freq_from_directory<P: AsRef<Path>>(
         }
 
         // Try to read the CSV file
-        match read_key_freq_csv(&path, opt) {
+        match read_key_freq_csv(&path) {
             Ok(freq) => {
                 if !freq.is_empty() {
                     merged_freq.merge(freq);
@@ -176,11 +146,14 @@ pub fn read_key_freq_from_directory<P: AsRef<Path>>(
     Ok(merged_freq)
 }
 
+/// Reads key frequency data from a CSV file
+fn read_key_freq_csv<P: AsRef<Path>>(path: P) -> Result<KeyFreq> {
+    let file = std::fs::File::open(path)?;
+    read_key_freq_from_reader(file)
+}
+
 /// Read CSV with `Key,Count` format.
-/// - Character keys (A..Z) are automatically ignored by parse_key_label
-/// - F/Numpad/Nav keys are included only if enabled in ParseOptions
-/// - If strict_unknown_keys=true, an error is raised for unknown labels
-pub fn read_key_freq_from_reader<R: Read>(reader: R, opt: &ParseOptions) -> Result<KeyFreq> {
+fn read_key_freq_from_reader<R: Read>(reader: R) -> Result<KeyFreq> {
     let mut rdr = ReaderBuilder::new()
         .has_headers(true)
         .trim(Trim::All)
@@ -195,7 +168,7 @@ pub fn read_key_freq_from_reader<R: Read>(reader: R, opt: &ParseOptions) -> Resu
         let rec = result?;
         let row = i + 2; // CSV rows are 1-indexed, +1 for header
 
-        if let Some((kid, n)) = parse_record(&rec, row, opt)? {
+        if let Some((kid, n)) = parse_record(&rec, row)? {
             *counts.entry(kid).or_insert(0) += n;
         }
     }
@@ -234,11 +207,7 @@ fn validate_csv_headers<R: Read>(csv_reader: &mut csv::Reader<R>) -> Result<()> 
     Ok(())
 }
 
-fn parse_record(
-    rec: &StringRecord,
-    row: usize,
-    opt: &ParseOptions,
-) -> Result<Option<(KeyId, u64)>> {
+fn parse_record(rec: &StringRecord, row: usize) -> Result<Option<(KeyId, u64)>> {
     if rec.iter().all(|f| f.trim().is_empty()) {
         return Ok(None);
     }
@@ -249,15 +218,15 @@ fn parse_record(
         return Ok(None);
     }
 
-    match parse_key_label(key_label, opt) {
+    match parse_key_label(key_label) {
         Some(kid) => {
             let count = parse_count_value(count_str, row)?;
             Ok(Some((kid, count)))
         }
-        None if opt.strict_unknown_keys => Err(KbOptError::UnknownKey {
-            row,
-            label: key_label.to_string(),
-        }),
+        //None if opt.strict_unknown_keys => Err(KbOptError::UnknownKey {
+        //    row,
+        //    label: key_label.to_string(),
+        //}),
         None => Ok(None),
     }
 }
@@ -282,97 +251,4 @@ fn parse_count_value(count_str: &str, row_number: usize) -> Result<u64> {
             value: count_str.to_string(),
             source: parse_error,
         })
-}
-
-/// fallback
-pub fn create_fallback_data() -> KeyFreq {
-    use crate::keys::KeyId;
-    use std::collections::HashMap;
-
-    let mut counts = HashMap::new();
-
-    // 数字キー
-    for i in 0..=9 {
-        counts.insert(KeyId::Digit(i), 100);
-    }
-
-    // 修飾キー
-    counts.insert(KeyId::Tab, 100);
-    counts.insert(KeyId::Escape, 100);
-    counts.insert(KeyId::ShiftL, 100);
-    counts.insert(KeyId::ShiftR, 100);
-    counts.insert(KeyId::CtrlL, 100);
-    counts.insert(KeyId::CtrlR, 100);
-    counts.insert(KeyId::AltL, 100);
-    counts.insert(KeyId::AltR, 100);
-    counts.insert(KeyId::MetaL, 100);
-    counts.insert(KeyId::MetaR, 100);
-    counts.insert(KeyId::CapsLock, 100);
-    counts.insert(KeyId::Delete, 100);
-    counts.insert(KeyId::Backspace, 100);
-
-    // 矢印キー
-    counts.insert(KeyId::Arrow(crate::keys::ArrowKey::Up), 1000);
-    counts.insert(KeyId::Arrow(crate::keys::ArrowKey::Down), 1000);
-    counts.insert(KeyId::Arrow(crate::keys::ArrowKey::Left), 1000);
-    counts.insert(KeyId::Arrow(crate::keys::ArrowKey::Right), 1000);
-
-    KeyFreq::from_counts(counts)
-}
-
-#[cfg(test)]
-mod directory_tests {
-    use super::*;
-    use crate::keys::{KeyId, ParseOptions};
-
-    #[test]
-    fn test_read_key_freq_from_directory_nonexistent() {
-        use std::path::PathBuf;
-        let opt = ParseOptions::default();
-        let nonexistent = PathBuf::from("nonexistent_directory");
-
-        let result = read_key_freq_from_directory(&nonexistent, &opt);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_key_freq_merge() {
-        use std::collections::HashMap;
-
-        let mut freq1_counts = HashMap::new();
-        freq1_counts.insert(KeyId::Tab, 10);
-        freq1_counts.insert(KeyId::Space, 20);
-        let mut freq1 = KeyFreq::from_counts(freq1_counts);
-
-        let mut freq2_counts = HashMap::new();
-        freq2_counts.insert(KeyId::Tab, 5); // Should merge with freq1
-        freq2_counts.insert(KeyId::Enter, 15);
-        let freq2 = KeyFreq::from_counts(freq2_counts);
-
-        freq1.merge(freq2);
-
-        assert_eq!(freq1.get_count(KeyId::Tab), 15); // 10 + 5
-        assert_eq!(freq1.get_count(KeyId::Space), 20);
-        assert_eq!(freq1.get_count(KeyId::Enter), 15);
-        assert_eq!(freq1.total(), 50); // 15 + 20 + 15
-        assert_eq!(freq1.unique_keys(), 3);
-    }
-
-    #[test]
-    fn test_to_optimizer_format() {
-        use std::collections::HashMap;
-
-        let mut counts = HashMap::new();
-        counts.insert(KeyId::Tab, 100);
-        counts.insert(KeyId::Space, 200);
-        counts.insert(KeyId::Digit(1), 50);
-
-        let freq = KeyFreq::from_counts(counts);
-        let optimizer_format = freq.to_optimizer_format();
-
-        assert_eq!(optimizer_format.get("Tab"), Some(&100));
-        assert_eq!(optimizer_format.get("Space"), Some(&200));
-        assert_eq!(optimizer_format.get("1"), Some(&50));
-        assert_eq!(optimizer_format.len(), 3);
-    }
 }

@@ -1,17 +1,8 @@
-# デフォルト設定
 [solver]
 version = "v1"             # "v1" | "v2"
 output_dir = "figs"        # 出力ディレクトリ
 geometry = "row-staggered" # "row-staggered" | "ortho" | "column-staggered"
 csv_dir = "csv"            # データのCSVディレクトリ
-
-# 最適化オプション (全てデフォルト値があるのでこれらはオプション)
-include_fkeys = false
-include_digits = false   # 数字行も最適化に含めるか
-max_rows = 6             # 最大行数（4-6）
-align_left_edge = false  # 左端揃え (未実装)
-align_right_edge = false # 右端揃え (未実装)
-solution_threshold = 0.5
 
 # 指別Fitts係数設定
 [fingerwise_coeffs]
@@ -54,12 +45,3 @@ b_ms = 140.0
 [fingerwise_coeffs.RThumb]
 a_ms = 50.0
 b_ms = 140.0
-
-
-[v1]
-# 数字クラスタ設定
-# include_digits = true の場合に有効
-[v1.digit_cluster]
-enforce_sequence = true
-enforce_horizontal = true
-allowed_rows = [4]

@@ -1,65 +1,35 @@
-use crate::csv_reader::KeyFreq;
-use crate::error::KbOptError;
-use crate::geometry::Geometry;
-
-// モジュール宣言
-pub mod common;
-pub mod config;
-pub mod fitts; // 共通Fitts法則
+pub mod fitts;
 pub mod v1;
-pub mod v2;
+//pub mod v2;
+//pub mod v3;
 
 // Re-exports
-pub use common::{TimedExecution, VersionComparison};
-pub use config::Config;
 pub use fitts::{
     FingerwiseFittsCoefficients, compute_directional_effective_width, compute_unified_fitts_time,
 };
 pub use v1::solve_layout_v1;
-pub use v2::{SolveOptionsV2, solve_layout_v2};
+//pub use v2::{SolveOptionsV2, solve_layout_v2};
 
-/// v1互換のソルバ設定
-#[derive(Debug, Clone)]
-pub struct SolveOptions {
-    pub include_fkeys: bool, // F1..F12 を動かすか
-    pub a_ms: f64,           // Fitts: a
-    pub b_ms: f64,           // Fitts: b
-}
-
-impl Default for SolveOptions {
-    fn default() -> Self {
-        Self {
-            include_fkeys: false,
-            a_ms: 0.0,
-            b_ms: 1.0,
-        }
-    }
-}
+use crate::{
+    config::Config,
+    csv_reader::KeyFreq,
+    error::{KbOptError, Result},
+    geometry::Geometry,
+};
 
 /// 最適化結果
 #[derive(Debug, Clone)]
-pub struct SolutionLayout {
+pub struct Solution {
     pub objective_ms: f64,
 }
 
-/// 統一された最適化エントリポイント（設定オブジェクト指定）
-pub fn solve_layout_from_config(
-    geom: &mut Geometry,
-    freqs: &KeyFreq,
-    config: &Config,
-) -> Result<SolutionLayout, KbOptError> {
+pub fn solve_layout(geom: &mut Geometry, freqs: &KeyFreq, config: &Config) -> Result<Solution> {
     match config.solver.version.as_str() {
-        "v1" => {
-            let v1_opts = config.to_v1_options();
-            v1::solve_layout_v1(geom, freqs, &config.to_solve_options_v1(), &v1_opts)
+        "v1" => v1::solve_layout_v1(geom, freqs, &config),
+        "v2" => Err(KbOptError::Config("v2 is not implemented yet".to_string())),
+        "v3" => Err(KbOptError::Config("v3 is not implemented yet".to_string())),
+        _ => {
+            unreachable!(); // validationで既にチェック済み
         }
-        "v2" => {
-            let opts_v2 = SolveOptionsV2::from_config(config);
-            v2::solve_layout_v2(geom, freqs, &opts_v2)
-        }
-        _ => Err(KbOptError::ConfigError(format!(
-            "Unknown solver version: {}. Must be 'v1' or 'v2'",
-            config.solver.version
-        ))),
     }
 }

@@ -1,29 +1,26 @@
-use crate::constants::FINGER_X_BOUNDARY;
-use crate::geometry::types::{Finger, Finger::*};
+use crate::{
+    constants::MIDDLE_CELL,
+    geometry::types::{Finger, Finger::*},
+};
+
+/// 境界値を事前計算（コンパイル時）
+const BOUNDARIES: [usize; 7] = [
+    MIDDLE_CELL - 16, // LPinky | LRing
+    MIDDLE_CELL - 12, // LRing | LMiddle
+    MIDDLE_CELL - 8,  // LMiddle | LIndex
+    MIDDLE_CELL,      // LIndex | RIndex
+    MIDDLE_CELL + 8,  // RIndex | RMiddle
+    MIDDLE_CELL + 12, // RMiddle | RRing
+    MIDDLE_CELL + 16, // RRing | RPinky
+];
+
+const FINGERS: [Finger; 8] = [
+    LPinky, LRing, LMiddle, LIndex, RIndex, RMiddle, RRing, RPinky,
+];
 
 /// 親指以外の指の割り当てをx座標を用いて決める
-#[inline]
 pub fn finger_from_x(x: usize) -> Finger {
-    if x < FINGER_X_BOUNDARY[0] {
-        return LPinky;
-    }
-    if x < FINGER_X_BOUNDARY[1] {
-        return LRing;
-    }
-    if x < FINGER_X_BOUNDARY[2] {
-        return LMiddle;
-    }
-    if x < FINGER_X_BOUNDARY[3] {
-        return LIndex;
-    }
-    if x < FINGER_X_BOUNDARY[4] {
-        return RIndex;
-    }
-    if x < FINGER_X_BOUNDARY[5] {
-        return RMiddle;
-    }
-    if x < FINGER_X_BOUNDARY[6] {
-        return RRing;
-    }
-    RPinky
+    // バイナリサーチで境界を見つける
+    let index = BOUNDARIES.partition_point(|&boundary| x >= boundary);
+    FINGERS[index]
 }

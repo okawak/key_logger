@@ -1,23 +1,22 @@
-/// # v1ソルバー実装: 単一レイヤー・アルファベット固定・高機能版
-///
-/// CLAUDE.md v1仕様に基づく実装:
-/// - 基本: 単一係数Fitts法則（既存実装）  
-/// - 拡張: 指別Fitts係数対応
-/// - 拡張: 数字クラスタ対応（1-9,0の連結配置）
-/// - アルファベット（A-Z）は固定位置
-use std::collections::{BTreeSet, HashMap};
+use crate::{
+    config::Config,
+    constants::U2CELL,
+    csv_reader::KeyFreq,
+    error::Result,
+    geometry::{
+        Geometry,
+        sets::{OptimizationSets, extract_free_cell_intervals},
+        types::{BlockId, CellId, KeyCandidates},
+    },
+    keys::{ArrowKey, ClusterConfig, KeyId, all_movable_keys},
+    optimize::{
+        Solution,
+        fitts::{FingerwiseFittsCoefficients, compute_key_fitts_time, compute_unified_fitts_time},
+    },
+};
 
-use crate::constants::U2CELL;
-use crate::geometry::{
-    Geometry,
-    sets::{OptimizationSets, extract_free_cell_intervals},
-    types::{BlockId, CellId, KeyCandidates},
-};
-use crate::keys::ClusterConfig;
-use crate::keys::{ArrowKey, KeyId};
-use crate::optimize::fitts::{
-    FingerwiseFittsCoefficients, compute_key_fitts_time, compute_unified_fitts_time,
-};
+use good_lp::{Expression, ProblemVariables, SolverModel, Variable, coin_cbc, variable};
+use std::collections::{BTreeSet, HashMap};
 
 /// 矢印キー定数
 pub const ARROW_KEYS: [KeyId; 4] = [
@@ -50,12 +49,12 @@ pub fn is_digit(key_id: &KeyId) -> bool {
     matches!(key_id, KeyId::Digit(_))
 }
 
-pub fn is_modifier(key_id: &KeyId) -> bool {
-    matches!(key_id, KeyId::Modifier(_))
+pub fn is_function(key_id: &KeyId) -> bool {
+    matches!(key_id, KeyId::Function(_))
 }
 
-pub fn is_digit_or_f(key_id: &KeyId) -> bool {
-    matches!(key_id, KeyId::Digit(_) | KeyId::Function(_))
+pub fn is_modifier(key_id: &KeyId) -> bool {
+    matches!(key_id, KeyId::Modifier(_))
 }
 
 /// 幅候補（0.25u 刻み）。数字/F/矢印/モディファイアは 1u 固定。
@@ -239,51 +238,12 @@ impl Default for OptimizationWeights {
     }
 }
 
-/// v1メインエントリポイント（指別Fitts + 数字クラスタ対応）
-///
-/// CLAUDE.md v1仕様に基づく標準版:
-/// - 指別Fitts係数による高精度計算
-/// - 数字クラスタ（1-9,0連結配置）
-/// - 方向依存の有効幅
-/// - アルファベット固定・単一レイヤー
-pub fn solve_layout_v1(
-    geom: &mut Geometry,
-    freqs: &crate::csv_reader::KeyFreq,
-    opt: &crate::optimize::SolveOptions,
-    v1_opt: &Options,
-) -> Result<crate::optimize::SolutionLayout, crate::error::KbOptError> {
-    use crate::geometry::types::CellId;
-    use crate::keys::{KeyId, ParseOptions, all_movable_keys};
-    use good_lp::{Expression, ProblemVariables, SolverModel, Variable, coin_cbc, variable};
-    use std::collections::{BTreeSet, HashMap};
-
-    log::info!(
-        "v1 solver: fingerwise_fitts={}, digit_cluster={}",
-        v1_opt.enable_fingerwise_fitts,
-        v1_opt.enable_digit_cluster
-    );
-
-    // 最適化モデルの定数（設定から取得）
-    let constants = &v1_opt.solver_constants;
-    let required_arrow_blocks = constants.required_arrow_blocks;
-    let required_arrow_blocks_f64 = constants.required_arrow_blocks as f64;
-    let flow_roots_f64 = constants.flow_roots;
-    let max_flow_per_block = constants.max_flow_per_block;
-
-    // 数字クラスター用定数（CLAUDE.md仕様）
-    let required_digit_blocks_f64 = constants.required_digit_blocks as f64;
-    let digit_flow_roots_f64 = constants.digit_flow_roots;
-    let max_digit_flow_per_block = constants.max_digit_flow_per_block;
-
+/// v1のモデラー設定
+pub fn solve_layout_v1(geom: &mut Geometry, freqs: &KeyFreq, config: &Config) -> Result<Solution> {
     // 1) 集合を作る - CSVにないキーも含める（count 0として扱う）
-    let parse_opt = ParseOptions {
-        include_fkeys: opt.include_fkeys,
-        ..Default::default()
-    };
-
-    let movable: BTreeSet<KeyId> = all_movable_keys(&parse_opt)
+    let movable: BTreeSet<KeyId> = all_movable_keys(&config)
         .into_iter()
-        .filter(|k| !is_arrow(k) && !is_digit_or_f(k)) // 数字は別途クラスタで処理
+        .filter(|k| !is_arrow(k) && !is_digit(k) && !is_function(k)) // クラスタで別処理
         .collect();
 
     // 2) v1: 全キーが全行に配置可能、全空きセルが矢印キー候補
@@ -305,7 +265,7 @@ pub fn solve_layout_v1(
     };
 
     if cands.is_empty() {
-        return Err(crate::error::KbOptError::ModelError {
+        return Err(crate::error::KbOptError::Model {
             message: "No valid key placement candidates found".to_string(),
         });
     }
@@ -313,7 +273,7 @@ pub fn solve_layout_v1(
     // 4) 矢印用ブロックを変換
     let (blocks, _block_index) = build_blocks_from_precompute(geom, &optimization_sets);
     if blocks.len() < required_arrow_blocks {
-        return Err(crate::error::KbOptError::ModelError {
+        return Err(crate::error::KbOptError::Model {
             message: format!(
                 "Insufficient arrow blocks: found {}, need at least {}",
                 blocks.len(),
