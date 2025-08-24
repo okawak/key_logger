@@ -1,8 +1,11 @@
 [solver]
-version = "v1"             # "v1" | "v2"
-output_dir = "figs"        # 出力ディレクトリ
-geometry = "row-staggered" # "row-staggered" | "ortho" | "column-staggered"
-csv_dir = "csv"            # データのCSVディレクトリ
+version = "v1"           # "v1" | "v2"
+output_dir = "figs"      # 出力ディレクトリ
+geometry = "row-stagger" # "row-stagger" | "ortho" | "column-stagger"
+csv_dir = "csv"          # データのCSVディレクトリ
+max_rows = 6             # 最大行数
+include_digits = true    # 数字キーを最適化対象に含める
+include_fkeys = false    # Fキーを最適化対象に含める
 
 # 指別Fitts係数設定
 [fingerwise_coeffs]
@@ -45,3 +48,10 @@ b_ms = 140.0
 [fingerwise_coeffs.RThumb]
 a_ms = 50.0
 b_ms = 140.0
+
+# v1設定
+[v1]
+[v1.digit_cluster]
+enforce_sequence = true
+enforce_horizontal = true
+allowed_rows = [4]        # デフォルトでは数字行（下から4行目）

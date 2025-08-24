@@ -1,14 +1,13 @@
 use analyzer::{
-    KbOptError,
     config::Config,
     csv_reader::read_key_freq,
-    geometry::{Geometry, GeometryName, save_layout},
+    geometry::{Geometry, save_layout},
     optimize::solve_layout,
 };
 use anyhow::Result;
 use clap::Parser;
-use log::{debug, error, info, warn};
-use std::{path::PathBuf, process::exit};
+use log::{debug, error, info};
+use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -24,7 +23,7 @@ fn main() -> Result<()> {
 
     // Load configuration file
     let config = Config::load_from_file(&args.config)?;
-    debug!("Loaded configuration: {}", config.debug_print());
+    debug!("Loaded configuration: {:#?}", config.debug_print());
 
     // Build geometry with configurable row count
     let mut geom = Geometry::build(&config)?;
@@ -44,7 +43,7 @@ fn main() -> Result<()> {
     info!("Solver version: {}", solver.version);
     info!("Geometry: {}", solver.geometry);
     info!("Configuration: {}", args.config.display());
-    info!("Data source: {}", solver.csv_dir.display());
+    info!("Data source: {}", solver.csv_dir);
     info!("Options:");
     info!("    include_fkeys: {}", solver.include_fkeys);
     info!("    include_digits: {}", solver.include_digits);

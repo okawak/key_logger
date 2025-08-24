@@ -1,9 +1,9 @@
 # デフォルト設定
 [solver]
-version = "v1"             # "v1" | "v2"
-output_dir = "figs"        # 出力ディレクトリ
-geometry = "row-staggered" # "row-staggered" | "ortho" | "column-staggered"
-csv_dir = "csv"            # データのCSVディレクトリ
+version = "v1"           # "v1" | "v2"
+output_dir = "figs"      # 出力ディレクトリ
+geometry = "row-stagger" # "row-stagger" | "ortho" | "column-stagger"
+csv_dir = "csv"          # データのCSVディレクトリ
 
 # 最適化オプション (全てデフォルト値があるのでこれらはオプション)
 include_fkeys = false

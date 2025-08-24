@@ -12,6 +12,8 @@ pub struct Config {
     pub v1: Option<V1Config>,
     pub v2: Option<V2Config>,
     pub v3: Option<V3Config>,
+    // Fitts係数
+    pub fingerwise_coeffs: Option<HashMap<String, FittsCoefficient>>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -35,15 +37,12 @@ pub struct SolverConfig {
     pub align_right_edge: bool, // 右端揃え
     #[serde(default)]
     pub solution_threshold: f64, // 解の閾値（デフォルト0.5）
-
-    // Fitts係数
-    pub fingerwise_coeffs: Option<HashMap<String, FittsCoefficient>>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct FittsCoefficient {
-    pub a_ms: f64,
-    pub b_ms: f64,
+    pub a_ms: f32,
+    pub b_ms: f32,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -110,11 +109,11 @@ impl Default for Config {
                 align_left_edge: false,
                 align_right_edge: false,
                 solution_threshold: 0.5,
-                fingerwise_coeffs: None,
             },
             v1: None,
             v2: None,
             v3: None,
+            fingerwise_coeffs: None,
         }
     }
 }
@@ -189,13 +188,14 @@ impl Config {
             )));
         }
 
-        if let Some(v1config) = &self.v1 {
-            if solver_config.include_digits && v1config.digit_cluster.allowed_rows.is_empty() {
-                return Err(KbOptError::Config(
-                    "digit_cluster.allowed_rows cannot be empty when include_digits is true"
-                        .to_string(),
-                ));
-            }
+        if let Some(v1config) = &self.v1
+            && solver_config.include_digits
+            && v1config.digit_cluster.allowed_rows.is_empty()
+        {
+            return Err(KbOptError::Config(
+                "digit_cluster.allowed_rows cannot be empty when include_digits is true"
+                    .to_string(),
+            ));
         }
 
         Ok(())

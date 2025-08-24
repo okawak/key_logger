@@ -74,9 +74,9 @@ impl Geometry {
         };
 
         // 固定文字（A..Z）を確保
-        geom.reserve_cells(&config);
+        geom.reserve_cells(config);
         // ホーム位置（ASDF / JKL;）
-        geom.init_homes(&config);
+        geom.init_homes(config);
 
         Ok(geom)
     }

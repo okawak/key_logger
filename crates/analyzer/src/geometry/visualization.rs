@@ -347,8 +347,8 @@ fn render_finger_regions(renderer: &mut Renderer, geom: &Geometry) -> Result<()>
 fn render_all_keys(renderer: &mut Renderer, geom: &Geometry, freqs: &KeyFreq) -> Result<()> {
     for (key_name, key_placement) in &geom.key_placements {
         // key_placementのx, yはmm単位なので、u単位に変換してからpx変換
-        let x_u = key_placement.x / U2MM as f32;
-        let y_u = key_placement.y / U2MM as f32;
+        let x_u = key_placement.x / U2MM;
+        let y_u = key_placement.y / U2MM;
         let (px_x, px_y) = key_center_to_px(x_u, y_u);
 
         let width_px = key_placement.width_u * U2PX;
@@ -526,8 +526,8 @@ fn render_all_keys(renderer: &mut Renderer, geom: &Geometry, freqs: &KeyFreq) ->
 fn render_home_positions_from_homes(renderer: &mut Renderer, geom: &Geometry) -> Result<()> {
     for (home_x, home_y) in geom.homes.values() {
         // home座標はmm単位なので、u単位に変換してからpx変換
-        let x_u = home_x / U2MM as f32;
-        let y_u = home_y / U2MM as f32;
+        let x_u = home_x / U2MM;
+        let y_u = home_y / U2MM;
         let (px_x, px_y) = key_center_to_px(x_u, y_u);
 
         // ホームポジションを小さな円として描画（矩形で近似）
@@ -677,8 +677,8 @@ fn render_empty_key_frames_with_offset(
 ) -> Result<()> {
     for key_placement in geom.key_placements.values() {
         // key_placementのx, yはmm単位なので、u単位に変換してからpx変換
-        let x_u = key_placement.x / U2MM as f32;
-        let y_u = key_placement.y / U2MM as f32;
+        let x_u = key_placement.x / U2MM;
+        let y_u = key_placement.y / U2MM;
         let (px_x, px_y) = key_center_to_px(x_u, y_u);
         let adjusted_px_y = px_y + y_offset;
 
@@ -720,8 +720,8 @@ fn render_layer_keys_only(
     for (key_name, key_placement) in &geom.key_placements {
         // このキーがレイヤーキーかどうかをチェック
         if key_placement.layer > 0 {
-            let x_u = key_placement.x / U2MM as f32;
-            let y_u = key_placement.y / U2MM as f32;
+            let x_u = key_placement.x / U2MM;
+            let y_u = key_placement.y / U2MM;
             let (px_x, px_y) = key_center_to_px(x_u, y_u);
             let adjusted_px_y = px_y + y_offset;
 
@@ -833,8 +833,8 @@ fn render_all_keys_with_offset(
 ) -> Result<()> {
     for (key_name, key_placement) in &geom.key_placements {
         // key_placementのx, yはmm単位なので、u単位に変換してからpx変換
-        let x_u = key_placement.x / U2MM as f32;
-        let y_u = key_placement.y / U2MM as f32;
+        let x_u = key_placement.x / U2MM;
+        let y_u = key_placement.y / U2MM;
         let (px_x, px_y) = key_center_to_px(x_u, y_u);
         let adjusted_px_y = px_y + y_offset;
 
@@ -1024,8 +1024,8 @@ fn render_layer_symbols(
             // アルファベットキーの典型的な配置を検索
             p.placement_type == PlacementType::Optimized
         }) {
-            let x_u = placement.x / U2MM as f32;
-            let y_u = placement.y / U2MM as f32;
+            let x_u = placement.x / U2MM;
+            let y_u = placement.y / U2MM;
             let (px_x, px_y) = key_center_to_px(x_u, y_u);
             let adjusted_px_y = px_y + y_offset;
 
@@ -1067,8 +1067,8 @@ fn render_home_positions_with_offset(
 ) -> Result<()> {
     for (home_x, home_y) in geom.homes.values() {
         // home座標はmm単位なので、u単位に変換してからpx変換
-        let x_u = home_x / U2MM as f32;
-        let y_u = home_y / U2MM as f32;
+        let x_u = home_x / U2MM;
+        let y_u = home_y / U2MM;
         let (px_x, px_y) = key_center_to_px(x_u, y_u);
         let adjusted_px_y = px_y + y_offset;
 
