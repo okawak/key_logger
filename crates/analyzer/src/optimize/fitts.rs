@@ -100,7 +100,7 @@ pub fn compute_fitts_time(
 
     // 3. 指別Fitts時間計算
     let (a_f, b_f) = coeffs.get_coeffs(finger).ok_or(KbOptError::Config(format!(
-        "finger coefficient is not definded: {}",
+        "finger coefficient is not defined: {}",
         finger_to_string(finger)
     )))?;
 

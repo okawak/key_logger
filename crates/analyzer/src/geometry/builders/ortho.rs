@@ -11,6 +11,8 @@ use std::collections::HashMap;
 // Row offsets from middle cell (negative = left shift)
 const ROW_OFFSETS: [i32; 4] = [-20, -20, -20, -20];
 
+const _: () = assert!(ROW_OFFSETS.len() >= 4, "ROW_OFFSET should be larger than 4"); // 4 rows (including digit row)
+
 // Fixed key layout definition
 const FIXED_KEYS: &[(usize, &[&str])] = &[
     (1, &["Z", "X", "C", "V", "B", "N", "M"]), // Bottom row: 7 keys
