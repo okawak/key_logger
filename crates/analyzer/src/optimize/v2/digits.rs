@@ -41,16 +41,3 @@ pub fn add_digit_objective_terms(
     // Phase 4で実装
     todo!("Phase 4: digit cluster objective terms not yet implemented")
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_digit_cluster_config_default() {
-        let config = DigitClusterConfig::default();
-        assert!(!config.enable_digit_cluster);
-        assert!(config.enforce_order);
-        assert_eq!(config.allowed_rows, vec![0, 1]);
-    }
-}

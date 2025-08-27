@@ -1,20 +1,22 @@
-use std::fs;
-use std::path::{Path, PathBuf};
+use crate::{
+    config::Config,
+    constants::{FONT_SIZE, LEGEND_WIDTH, MARGIN, MAX_COL_CELLS, MAX_ROW, U2CELL, U2MM, U2PX},
+    csv_reader::KeyFreq,
+    error::Result,
+    geometry::types::*,
+};
 
 use ab_glyph::{FontVec, PxScale};
-use font_kit::family_name::FamilyName;
-use font_kit::properties::Properties;
-use font_kit::source::SystemSource;
+use font_kit::{family_name::FamilyName, properties::Properties, source::SystemSource};
 use image::{ImageBuffer, Rgb, RgbImage};
-use imageproc::drawing::{draw_filled_rect_mut, draw_hollow_rect_mut, draw_text_mut};
-use imageproc::rect::Rect;
-
-use super::types::*;
-use crate::constants::{
-    FONT_SIZE, LEGEND_WIDTH, MARGIN, MAX_COL_CELLS, MAX_ROW, U2CELL, U2MM, U2PX,
+use imageproc::{
+    drawing::{draw_filled_rect_mut, draw_hollow_rect_mut, draw_text_mut},
+    rect::Rect,
 };
-use crate::csv_reader::KeyFreq;
-use crate::error::Result;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 /// キー中心座標をピクセル座標に変換（Y軸反転、center-to-center）
 #[inline]
@@ -175,42 +177,42 @@ pub fn render_layout<P: AsRef<Path>>(
     Ok(())
 }
 
-/// Geometryからレイヤ情報を抽出
-fn extract_layer_info_from_geometry(geom: &Geometry) -> Vec<(String, usize, String)> {
-    let mut layer_info = Vec::new();
+// Geometryからレイヤ情報を抽出
+// fn extract_layer_info_from_geometry(geom: &Geometry) -> Vec<(String, usize, String)> {
+//     let mut layer_info = Vec::new();
+//
+//     for (key_name, placement) in &geom.key_placements {
+//         if placement.layer > 0 {
+//             // レイヤキーの場合、キー名から記号を抽出
+//             let symbol = if key_name.contains('_') {
+//                 key_name.split('_').next().unwrap_or(key_name).to_string()
+//             } else {
+//                 key_name.clone()
+//             };
+//
+//             let modifier = placement
+//                 .modifier_key
+//                 .as_ref()
+//                 .unwrap_or(&"Unknown".to_string())
+//                 .clone();
+//
+//             layer_info.push((symbol, placement.layer as usize, modifier));
+//         }
+//     }
+//
+//     layer_info
+// }
 
-    for (key_name, placement) in &geom.key_placements {
-        if placement.layer > 0 {
-            // レイヤキーの場合、キー名から記号を抽出
-            let symbol = if key_name.contains('_') {
-                key_name.split('_').next().unwrap_or(key_name).to_string()
-            } else {
-                key_name.clone()
-            };
-
-            let modifier = placement
-                .modifier_key
-                .as_ref()
-                .unwrap_or(&"Unknown".to_string())
-                .clone();
-
-            layer_info.push((symbol, placement.layer as usize, modifier));
-        }
-    }
-
-    layer_info
-}
-
-/// レイヤ機能を含むレイアウトを複数レイヤで描画（Geometryから自動抽出）
-pub fn render_layout_with_layers_from_geometry<P: AsRef<Path>>(
-    geom: &Geometry,
-    freqs: &KeyFreq,
-    output_path: P,
-    render_finger_bg: bool,
-) -> Result<()> {
-    let layer_info = extract_layer_info_from_geometry(geom);
-    render_layout_with_layers(geom, freqs, output_path, render_finger_bg, &layer_info)
-}
+// レイヤ機能を含むレイアウトを複数レイヤで描画（Geometryから自動抽出）
+// pub fn render_layout_with_layers_from_geometry<P: AsRef<Path>>(
+//     geom: &Geometry,
+//     freqs: &KeyFreq,
+//     output_path: P,
+//     render_finger_bg: bool,
+// ) -> Result<()> {
+//     let layer_info = extract_layer_info_from_geometry(geom);
+//     render_layout_with_layers(geom, freqs, output_path, render_finger_bg, &layer_info)
+// }
 
 /// レイヤ機能を含むレイアウトを複数レイヤで描画（外部指定）
 pub fn render_layout_with_layers<P: AsRef<Path>>(
@@ -345,8 +347,8 @@ fn render_finger_regions(renderer: &mut Renderer, geom: &Geometry) -> Result<()>
 fn render_all_keys(renderer: &mut Renderer, geom: &Geometry, freqs: &KeyFreq) -> Result<()> {
     for (key_name, key_placement) in &geom.key_placements {
         // key_placementのx, yはmm単位なので、u単位に変換してからpx変換
-        let x_u = key_placement.x / U2MM as f32;
-        let y_u = key_placement.y / U2MM as f32;
+        let x_u = key_placement.x / U2MM;
+        let y_u = key_placement.y / U2MM;
         let (px_x, px_y) = key_center_to_px(x_u, y_u);
 
         let width_px = key_placement.width_u * U2PX;
@@ -524,8 +526,8 @@ fn render_all_keys(renderer: &mut Renderer, geom: &Geometry, freqs: &KeyFreq) ->
 fn render_home_positions_from_homes(renderer: &mut Renderer, geom: &Geometry) -> Result<()> {
     for (home_x, home_y) in geom.homes.values() {
         // home座標はmm単位なので、u単位に変換してからpx変換
-        let x_u = home_x / U2MM as f32;
-        let y_u = home_y / U2MM as f32;
+        let x_u = home_x / U2MM;
+        let y_u = home_y / U2MM;
         let (px_x, px_y) = key_center_to_px(x_u, y_u);
 
         // ホームポジションを小さな円として描画（矩形で近似）
@@ -675,8 +677,8 @@ fn render_empty_key_frames_with_offset(
 ) -> Result<()> {
     for key_placement in geom.key_placements.values() {
         // key_placementのx, yはmm単位なので、u単位に変換してからpx変換
-        let x_u = key_placement.x / U2MM as f32;
-        let y_u = key_placement.y / U2MM as f32;
+        let x_u = key_placement.x / U2MM;
+        let y_u = key_placement.y / U2MM;
         let (px_x, px_y) = key_center_to_px(x_u, y_u);
         let adjusted_px_y = px_y + y_offset;
 
@@ -718,8 +720,8 @@ fn render_layer_keys_only(
     for (key_name, key_placement) in &geom.key_placements {
         // このキーがレイヤーキーかどうかをチェック
         if key_placement.layer > 0 {
-            let x_u = key_placement.x / U2MM as f32;
-            let y_u = key_placement.y / U2MM as f32;
+            let x_u = key_placement.x / U2MM;
+            let y_u = key_placement.y / U2MM;
             let (px_x, px_y) = key_center_to_px(x_u, y_u);
             let adjusted_px_y = px_y + y_offset;
 
@@ -831,8 +833,8 @@ fn render_all_keys_with_offset(
 ) -> Result<()> {
     for (key_name, key_placement) in &geom.key_placements {
         // key_placementのx, yはmm単位なので、u単位に変換してからpx変換
-        let x_u = key_placement.x / U2MM as f32;
-        let y_u = key_placement.y / U2MM as f32;
+        let x_u = key_placement.x / U2MM;
+        let y_u = key_placement.y / U2MM;
         let (px_x, px_y) = key_center_to_px(x_u, y_u);
         let adjusted_px_y = px_y + y_offset;
 
@@ -1022,8 +1024,8 @@ fn render_layer_symbols(
             // アルファベットキーの典型的な配置を検索
             p.placement_type == PlacementType::Optimized
         }) {
-            let x_u = placement.x / U2MM as f32;
-            let y_u = placement.y / U2MM as f32;
+            let x_u = placement.x / U2MM;
+            let y_u = placement.y / U2MM;
             let (px_x, px_y) = key_center_to_px(x_u, y_u);
             let adjusted_px_y = px_y + y_offset;
 
@@ -1065,8 +1067,8 @@ fn render_home_positions_with_offset(
 ) -> Result<()> {
     for (home_x, home_y) in geom.homes.values() {
         // home座標はmm単位なので、u単位に変換してからpx変換
-        let x_u = home_x / U2MM as f32;
-        let y_u = home_y / U2MM as f32;
+        let x_u = home_x / U2MM;
+        let y_u = home_y / U2MM;
         let (px_x, px_y) = key_center_to_px(x_u, y_u);
         let adjusted_px_y = px_y + y_offset;
 
@@ -1159,11 +1161,12 @@ fn render_layer_legend(
 /// figsディレクトリに最適化レイアウトを保存
 pub fn save_layout(
     geom: &Geometry,
-    freqs: &KeyFreq,
+    freqs: Option<&KeyFreq>,
+    config: &Config,
     render_finger_bg: bool,
     prefix: &str,
 ) -> Result<PathBuf> {
-    let output_dir = "figs";
+    let output_dir = &config.solver.output_dir;
     fs::create_dir_all(output_dir)?;
 
     let timestamp = std::time::SystemTime::now()
@@ -1177,21 +1180,27 @@ pub fn save_layout(
 
     let output_path = Path::new(output_dir).join(&filename);
 
-    render_layout(geom, freqs, &output_path, render_finger_bg)?;
+    let freq_data = if let Some(f) = freqs {
+        f
+    } else {
+        &KeyFreq::new() // 空の頻度データ
+    };
+
+    render_layout(geom, freq_data, &output_path, render_finger_bg)?;
 
     Ok(output_path)
 }
 
-/// figsディレクトリにレイヤ機能付き最適化レイアウトを保存（Geometryから自動抽出）
-pub fn save_layout_with_layers_from_geometry(
-    geom: &Geometry,
-    freqs: &KeyFreq,
-    render_finger_bg: bool,
-    prefix: &str,
-) -> Result<PathBuf> {
-    let layer_info = extract_layer_info_from_geometry(geom);
-    save_layout_with_layers(geom, freqs, render_finger_bg, prefix, &layer_info)
-}
+// figsディレクトリにレイヤ機能付き最適化レイアウトを保存（Geometryから自動抽出）
+// pub fn save_layout_with_layers_from_geometry(
+//     geom: &Geometry,
+//     freqs: &KeyFreq,
+//     render_finger_bg: bool,
+//     prefix: &str,
+// ) -> Result<PathBuf> {
+//     let layer_info = extract_layer_info_from_geometry(geom);
+//     save_layout_with_layers(geom, freqs, render_finger_bg, prefix, &layer_info)
+// }
 
 /// figsディレクトリにレイヤ機能付き最適化レイアウトを保存（外部指定）
 pub fn save_layout_with_layers(

@@ -1,39 +1,69 @@
-use super::super::types::*;
-use super::GeometryBuilder;
-use crate::constants::cell_to_key_center;
+use crate::{
+    config::Config,
+    constants::{MIDDLE_CELL, cell_to_key_center},
+    geometry::{
+        builders::GeometryBuilder,
+        types::{Finger, Finger::*},
+    },
+};
 use std::collections::HashMap;
+
+// Row offsets from middle cell (negative = left shift)
+const ROW_OFFSETS: [i32; 4] = [-18, -20, -21, -22];
+
+const _: () = assert!(ROW_OFFSETS.len() >= 4, "ROW_OFFSET should be larger than 4"); // 4 rows (including digit row)
+
+// Fixed key layout definition
+const FIXED_KEYS: &[(usize, &[&str])] = &[
+    (1, &["Z", "X", "C", "V", "B", "N", "M"]), // Bottom row: 7 keys
+    (2, &["A", "S", "D", "F", "G", "H", "J", "K", "L"]), // Home row: 9 keys
+    (3, &["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"]), // Top row: 10 keys
+];
+
+const DIGIT_KEYS: &[&str] = &["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
+
+// Home row finger positions and their corresponding offsets
+const HOME_FINGER_DATA: [(Finger, i32, usize); 10] = [
+    (LPinky, -20, 2),  // A
+    (LRing, -16, 2),   // S
+    (LMiddle, -12, 2), // D
+    (LIndex, -8, 2),   // F
+    (LThumb, -8, 0),   // Same cell as LIndex but row 0
+    (RIndex, 4, 2),    // J
+    (RThumb, 4, 0),    // Same cell as RIndex but row 0
+    (RMiddle, 8, 2),   // K
+    (RRing, 12, 2),    // L
+    (RPinky, 16, 2),   // ;
+];
 
 pub struct RowStaggerBuilder;
 
 impl GeometryBuilder for RowStaggerBuilder {
-    /// row-idx \[u\], start-cell \[cell\], vec of key names
-    fn get_letter_block_positions() -> Vec<(usize, usize, Vec<&'static str>)> {
-        vec![
-            (1, 22, vec!["Z", "X", "C", "V", "B", "N", "M"]), // Bottom row ZXCV: 7 keys
-            (2, 20, vec!["A", "S", "D", "F", "G", "H", "J", "K", "L"]), // Middle row ASDF: 9 keys
-            (
-                3,
-                19,
-                vec!["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
-            ), // Top row QWERTY: 10 keys
-        ]
+    fn get_fixed_key_positions(config: &Config) -> Vec<(usize, usize, Vec<&'static str>)> {
+        let mut positions = Vec::with_capacity(if config.solver.include_digits { 4 } else { 3 });
+
+        // Add standard letter rows
+        for &(row_idx, keys) in FIXED_KEYS {
+            let start_cell = (MIDDLE_CELL as i32 + ROW_OFFSETS[row_idx - 1]) as usize;
+            positions.push((row_idx, start_cell, keys.to_vec()));
+        }
+
+        // include_digitsがfalseの場合、数字行は固定とする
+        if !config.solver.include_digits {
+            let start_cell = (MIDDLE_CELL as i32 + ROW_OFFSETS[3]) as usize;
+            positions.push((4, start_cell, DIGIT_KEYS.to_vec()));
+        }
+
+        positions
     }
 
-    fn build_home_positions() -> HashMap<Finger, (f32, f32)> {
-        let mut homes = HashMap::new();
-
-        // second row 2 -> 8 cell
-        homes.insert(Finger::LPinky, cell_to_key_center(2, 20, 1.0)); // A
-        homes.insert(Finger::LRing, cell_to_key_center(2, 24, 1.0)); // S
-        homes.insert(Finger::LMiddle, cell_to_key_center(2, 28, 1.0)); // D
-        homes.insert(Finger::LIndex, cell_to_key_center(2, 32, 1.0)); // F
-        homes.insert(Finger::LThumb, cell_to_key_center(0, 32, 1.0));
-        homes.insert(Finger::RIndex, cell_to_key_center(2, 44, 1.0)); // J
-        homes.insert(Finger::RMiddle, cell_to_key_center(2, 48, 1.0)); // K
-        homes.insert(Finger::RRing, cell_to_key_center(2, 52, 1.0)); // L
-        homes.insert(Finger::RPinky, cell_to_key_center(2, 56, 1.0)); // ;
-        homes.insert(Finger::RThumb, cell_to_key_center(0, 44, 1.0));
-
-        homes
+    fn build_home_positions(_config: &Config) -> HashMap<Finger, (f32, f32)> {
+        HOME_FINGER_DATA
+            .iter()
+            .map(|&(finger, offset, row)| {
+                let cell = (MIDDLE_CELL as i32 + offset) as usize;
+                (finger, cell_to_key_center(row, cell, 1.0))
+            })
+            .collect()
     }
 }

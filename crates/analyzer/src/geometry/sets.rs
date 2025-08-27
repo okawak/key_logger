@@ -1,7 +1,6 @@
-use std::collections::HashMap;
+use crate::{geometry::types::*, keys::KeyId};
 
-use super::types::*;
-use crate::keys::KeyId;
+use std::collections::HashMap;
 
 /// 最適化問題の集合（キー候補、矢印候補等）
 #[derive(Debug, Clone)]

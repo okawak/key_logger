@@ -31,35 +31,26 @@ pub enum KbOptError {
     Image(#[from] image::ImageError),
 
     #[error("Optimization solver error: {0}")]
-    SolverError(String),
+    Solver(String),
 
     #[error("Model construction error: {message}")]
-    ModelError { message: String },
+    Model { message: String },
 
     #[error("Invalid geometry: {message}")]
-    GeometryError { message: String },
+    Geometry { message: String },
 
     #[error("Key placement error: {message}")]
-    PlacementError { message: String },
+    Placement { message: String },
+
+    #[error("TOML parse error: {0}")]
+    Toml(#[from] toml::de::Error),
+
+    #[error("JSON error: {0}")]
+    Json(#[from] serde_json::Error),
 
     #[error("Configuration error: {0}")]
-    ConfigError(String),
-
-    #[error("I/O error: {0}")]
-    IoError(String),
+    Config(String),
 
     #[error("Other error: {0}")]
     Other(String),
-}
-
-impl From<toml::de::Error> for KbOptError {
-    fn from(err: toml::de::Error) -> Self {
-        KbOptError::ConfigError(format!("TOML parse error: {}", err))
-    }
-}
-
-impl From<serde_json::Error> for KbOptError {
-    fn from(err: serde_json::Error) -> Self {
-        KbOptError::IoError(format!("JSON error: {}", err))
-    }
 }

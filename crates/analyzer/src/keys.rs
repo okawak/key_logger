@@ -1,5 +1,40 @@
-use crate::{DEFAULT_FKEYS_MAX, MAX_DIGIT, MAX_NUMPAD_DIGIT};
+use crate::{
+    config::Config,
+    constants::{DEFAULT_FKEYS_MAX, MAX_DIGIT},
+};
+
 use std::fmt;
+
+/// letter keys
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum LetterKey {
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    G,
+    H,
+    I,
+    J,
+    K,
+    L,
+    M,
+    N,
+    O,
+    P,
+    Q,
+    R,
+    S,
+    T,
+    U,
+    V,
+    W,
+    X,
+    Y,
+    Z,
+}
 
 /// Symbol keys
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -37,6 +72,9 @@ pub enum ModifierKey {
 /// Optimized key identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum KeyId {
+    // letter
+    Letter(LetterKey),
+    // digit
     Digit(u8), // 0..9
     // symbols (US)
     Symbol(SymbolKey),
@@ -79,6 +117,7 @@ impl fmt::Display for KeyId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use KeyId::*;
         match self {
+            Letter(l) => write!(f, "{:?}", l),
             Digit(d) => write!(f, "{}", d),
             Symbol(s) => write!(f, "{:?}", s),
             Tab => write!(f, "Tab"),
@@ -116,33 +155,55 @@ impl fmt::Display for KeyId {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ParseOptions {
-    pub include_fkeys: bool,
-    pub fkeys_max: u8,
-    pub include_navigation: bool,
-    pub include_numpad: bool,
-    pub include_modifiers: bool,
-    pub strict_unknown_keys: bool,
-}
-
-impl Default for ParseOptions {
-    fn default() -> Self {
-        Self {
-            include_fkeys: false,
-            fkeys_max: DEFAULT_FKEYS_MAX,
-            include_navigation: false,
-            include_numpad: false,
-            include_modifiers: false,
-            strict_unknown_keys: false,
-        }
+pub fn str_to_keyid(str: &str) -> Option<KeyId> {
+    use LetterKey::*;
+    match str {
+        // letters
+        "A" => Some(KeyId::Letter(A)),
+        "B" => Some(KeyId::Letter(B)),
+        "C" => Some(KeyId::Letter(C)),
+        "D" => Some(KeyId::Letter(D)),
+        "E" => Some(KeyId::Letter(E)),
+        "F" => Some(KeyId::Letter(F)),
+        "G" => Some(KeyId::Letter(G)),
+        "H" => Some(KeyId::Letter(H)),
+        "I" => Some(KeyId::Letter(I)),
+        "J" => Some(KeyId::Letter(J)),
+        "K" => Some(KeyId::Letter(K)),
+        "L" => Some(KeyId::Letter(L)),
+        "M" => Some(KeyId::Letter(M)),
+        "N" => Some(KeyId::Letter(N)),
+        "O" => Some(KeyId::Letter(O)),
+        "P" => Some(KeyId::Letter(P)),
+        "Q" => Some(KeyId::Letter(Q)),
+        "R" => Some(KeyId::Letter(R)),
+        "S" => Some(KeyId::Letter(S)),
+        "T" => Some(KeyId::Letter(T)),
+        "U" => Some(KeyId::Letter(U)),
+        "V" => Some(KeyId::Letter(V)),
+        "W" => Some(KeyId::Letter(W)),
+        "X" => Some(KeyId::Letter(X)),
+        "Y" => Some(KeyId::Letter(Y)),
+        "Z" => Some(KeyId::Letter(Z)),
+        // digits
+        "0" => Some(KeyId::Digit(0)),
+        "1" => Some(KeyId::Digit(1)),
+        "2" => Some(KeyId::Digit(2)),
+        "3" => Some(KeyId::Digit(3)),
+        "4" => Some(KeyId::Digit(4)),
+        "5" => Some(KeyId::Digit(5)),
+        "6" => Some(KeyId::Digit(6)),
+        "7" => Some(KeyId::Digit(7)),
+        "8" => Some(KeyId::Digit(8)),
+        "9" => Some(KeyId::Digit(9)),
+        _ => None, // まだ必要性がないのでここまで
     }
 }
 
-pub fn parse_key_label(label: &str, opt: &ParseOptions) -> Option<KeyId> {
+pub fn parse_key_label(label: &str) -> Option<KeyId> {
     use ArrowKey::*;
     use KeyId::*;
-    use ModifierKey::*;
+    //use ModifierKey::*;
     use SymbolKey::*;
 
     let s = label.trim();
@@ -217,67 +278,72 @@ pub fn parse_key_label(label: &str, opt: &ParseOptions) -> Option<KeyId> {
     }
 
     // Modifier keys for layer switching
-    if opt.include_modifiers {
-        match t {
-            "layer1" | "modifier1" => return Some(Modifier(Layer1)),
-            "layer2" | "modifier2" => return Some(Modifier(Layer2)),
-            "layer3" | "modifier3" => return Some(Modifier(Layer3)),
-            _ => {}
-        }
-    }
+    //if opt.include_modifiers {
+    //    match t {
+    //        "layer1" | "modifier1" => return Some(Modifier(Layer1)),
+    //        "layer2" | "modifier2" => return Some(Modifier(Layer2)),
+    //        "layer3" | "modifier3" => return Some(Modifier(Layer3)),
+    //        _ => {}
+    //    }
+    //}
 
-    if opt.include_navigation {
-        match t {
-            "home" => return Some(Home),
-            "end" => return Some(End),
-            "pageup" => return Some(PageUp),
-            "pagedown" => return Some(PageDown),
-            "insert" => return Some(Insert),
-            _ => {}
-        }
-    }
+    //if opt.include_navigation {
+    //    match t {
+    //        "home" => return Some(Home),
+    //        "end" => return Some(End),
+    //        "pageup" => return Some(PageUp),
+    //        "pagedown" => return Some(PageDown),
+    //        "insert" => return Some(Insert),
+    //        _ => {}
+    //    }
+    //}
 
-    if opt.include_fkeys
-        && let Some(rest) = t.strip_prefix('f')
-        && let Ok(n) = rest.parse::<u8>()
-        && 1 <= n
-        && n <= opt.fkeys_max
-    {
-        return Some(Function(n));
-    }
+    //if opt.include_fkeys
+    //    && let Some(rest) = t.strip_prefix('f')
+    //    && let Ok(n) = rest.parse::<u8>()
+    //    && 1 <= n
+    //    && n <= opt.fkeys_max
+    //{
+    //    return Some(Function(n));
+    //}
 
-    if opt.include_numpad
-        && let Some(rest) = t.strip_prefix("numpad")
-    {
-        match rest {
-            "add" => return Some(NumpadAdd),
-            "subtract" => return Some(NumpadSubtract),
-            "multiply" => return Some(NumpadMultiply),
-            "divide" => return Some(NumpadDivide),
-            "enter" => return Some(NumpadEnter),
-            "equals" => return Some(NumpadEquals),
-            "decimal" => return Some(NumpadDecimal),
-            _ => {
-                if let Ok(n) = rest.parse::<u8>()
-                    && n <= MAX_NUMPAD_DIGIT
-                {
-                    return Some(NumpadDigit(n));
-                }
-            }
-        }
-    }
+    //if opt.include_numpad
+    //    && let Some(rest) = t.strip_prefix("numpad")
+    //{
+    //    match rest {
+    //        "add" => return Some(NumpadAdd),
+    //        "subtract" => return Some(NumpadSubtract),
+    //        "multiply" => return Some(NumpadMultiply),
+    //        "divide" => return Some(NumpadDivide),
+    //        "enter" => return Some(NumpadEnter),
+    //        "equals" => return Some(NumpadEquals),
+    //        "decimal" => return Some(NumpadDecimal),
+    //        _ => {
+    //            if let Ok(n) = rest.parse::<u8>()
+    //                && n <= MAX_NUMPAD_DIGIT
+    //            {
+    //                return Some(NumpadDigit(n));
+    //            }
+    //        }
+    //    }
+    //}
 
     None
 }
 
-pub fn all_movable_keys(opt: &ParseOptions) -> Vec<KeyId> {
+pub fn all_movable_keys(config: &Config) -> Vec<KeyId> {
     use KeyId::*;
-    let mut v = vec![];
-
-    for d in 0..=9 {
-        v.push(Digit(d));
-    }
     use SymbolKey::*;
+
+    let mut v = Vec::new();
+
+    // include_digitがtrueの場合、最適化候補に入れる
+    if config.solver.include_digits {
+        for d in 0..=9 {
+            v.push(Digit(d));
+        }
+    }
+
     for s in [
         Backtick, Minus, Equal, LBracket, RBracket, Backslash, Semicolon, Quote, Comma, Period,
         Slash,
@@ -289,8 +355,8 @@ pub fn all_movable_keys(opt: &ParseOptions) -> Vec<KeyId> {
         AltR, MetaL, MetaR,
     ]);
 
-    if opt.include_fkeys {
-        for n in 1..=opt.fkeys_max {
+    if config.solver.include_fkeys {
+        for n in 1..=DEFAULT_FKEYS_MAX {
             v.push(Function(n));
         }
     }
@@ -302,31 +368,31 @@ pub fn all_movable_keys(opt: &ParseOptions) -> Vec<KeyId> {
         Arrow(ArrowKey::Right),
     ]);
 
-    if opt.include_modifiers {
-        v.extend([
-            Modifier(ModifierKey::Layer1),
-            Modifier(ModifierKey::Layer2),
-            Modifier(ModifierKey::Layer3),
-        ]);
-    }
+    //if opt.include_modifiers {
+    //    v.extend([
+    //        Modifier(ModifierKey::Layer1),
+    //        Modifier(ModifierKey::Layer2),
+    //        Modifier(ModifierKey::Layer3),
+    //    ]);
+    //}
 
-    if opt.include_navigation {
-        v.extend([Home, End, PageUp, PageDown, Insert]);
-    }
-    if opt.include_numpad {
-        for n in 0..=9 {
-            v.push(NumpadDigit(n));
-        }
-        v.extend([
-            NumpadAdd,
-            NumpadSubtract,
-            NumpadMultiply,
-            NumpadDivide,
-            NumpadEnter,
-            NumpadEquals,
-            NumpadDecimal,
-        ]);
-    }
+    //if opt.include_navigation {
+    //    v.extend([Home, End, PageUp, PageDown, Insert]);
+    //}
+    //if opt.include_numpad {
+    //    for n in 0..=9 {
+    //        v.push(NumpadDigit(n));
+    //    }
+    //    v.extend([
+    //        NumpadAdd,
+    //        NumpadSubtract,
+    //        NumpadMultiply,
+    //        NumpadDivide,
+    //        NumpadEnter,
+    //        NumpadEquals,
+    //        NumpadDecimal,
+    //    ]);
+    //}
     v
 }
 
