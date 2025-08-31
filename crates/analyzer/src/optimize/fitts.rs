@@ -1,20 +1,20 @@
 use crate::{
     config::Config,
-    constants::{U2MM, euclid_distance},
+    constants::{U2CELL, U2MM, euclid_distance},
     error::{KbOptError, Result},
     geometry::types::{Finger, finger_from_string, finger_to_string},
 };
 use std::collections::HashMap;
 
 /// Fittsの法則
-pub fn fitts_law(distance_mm: f32, width_mm: f32, a_ms: f32, b_ms: f32) -> f32 {
+pub fn fitts_law(distance_mm: f64, width_mm: f64, a_ms: f64, b_ms: f64) -> f64 {
     a_ms + b_ms * ((distance_mm / width_mm + 1.0).log2())
 }
 
 #[derive(Debug, Clone)]
 pub struct FingerwiseFittsCoefficients {
     /// 指別係数マップ: 指 → (a_ms, b_ms)
-    pub coefficients: HashMap<Finger, (f32, f32)>,
+    pub coefficients: HashMap<Finger, (f64, f64)>,
 }
 
 impl FingerwiseFittsCoefficients {
@@ -70,7 +70,7 @@ impl Default for FingerwiseFittsCoefficients {
 
 impl FingerwiseFittsCoefficients {
     /// 指の係数を取得
-    pub fn get_coeffs(&self, finger: Finger) -> Option<(f32, f32)> {
+    pub fn get_coeffs(&self, finger: Finger) -> Option<(f64, f64)> {
         self.coefficients.get(&finger).copied() // デフォルト値
     }
 }
@@ -78,46 +78,44 @@ impl FingerwiseFittsCoefficients {
 /// Fitts時間計算
 pub fn compute_fitts_time(
     finger: Finger,
-    key_center_mm: (f32, f32),
-    home_position_mm: (f32, f32),
-    key_width_u: f32,
+    key_center_mm: (f64, f64),
+    home_position_mm: (f64, f64),
+    key_width_cell: usize,
     coeffs: &FingerwiseFittsCoefficients,
-) -> Result<f32> {
+) -> Result<f64> {
     // 1. 距離計算
-    let distance_mm = euclid_distance(key_center_mm, home_position_mm);
+    let distance = euclid_distance(key_center_mm, home_position_mm);
 
     // 2. 有効幅計算
-    let effective_width_u = {
+    let effective_width = {
         // 方向角計算
         let dx = key_center_mm.0 - home_position_mm.0;
         let dy = key_center_mm.1 - home_position_mm.1;
         let direction_angle = dy.atan2(dx);
 
-        compute_directional_effective_width(key_width_u, 1.0, direction_angle)
+        compute_directional_effective_width(
+            key_width_cell as f64 * (U2MM / U2CELL as f64) / 2.0,
+            U2MM / 2.0,
+            direction_angle,
+        )
     };
-
-    let effective_width_mm = effective_width_u * U2MM;
 
     // 3. 指別Fitts時間計算
     let (a_f, b_f) = coeffs.get_coeffs(finger).ok_or(KbOptError::Config(format!(
         "finger coefficient is not defined: {}",
-        finger_to_string(finger)
+        finger_to_string(&finger)
     )))?;
 
-    Ok(fitts_law(distance_mm, effective_width_mm, a_f, b_f))
+    Ok(fitts_law(distance, effective_width, a_f, b_f))
 }
 
 /// 方向依存の有効幅計算（楕円近似）
-pub fn compute_directional_effective_width(
-    width_u: f32,
-    height_u: f32,
-    direction_angle: f32,
-) -> f32 {
-    let cos_phi = direction_angle.cos();
-    let sin_phi = direction_angle.sin();
+pub fn compute_directional_effective_width(a: f64, b: f64, angle: f64) -> f64 {
+    let cos_phi = angle.cos();
+    let sin_phi = angle.sin();
 
-    let cos2_over_w2 = (cos_phi * cos_phi) / (width_u * width_u);
-    let sin2_over_h2 = (sin_phi * sin_phi) / (height_u * height_u);
+    let cos2_over_w2 = (cos_phi * cos_phi) / (a * a);
+    let sin2_over_h2 = (sin_phi * sin_phi) / (b * b);
 
     1.0 / (cos2_over_w2 + sin2_over_h2).sqrt()
 }

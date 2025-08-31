@@ -41,8 +41,8 @@ pub struct SolverConfig {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct FittsCoefficient {
-    pub a_ms: f32,
-    pub b_ms: f32,
+    pub a_ms: f64,
+    pub b_ms: f64,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -209,9 +209,5 @@ impl Config {
     // まだ未実装
     fn validate_v3_config(&self) -> Result<()> {
         Err(KbOptError::Config("v3 is under development".to_string()))
-    }
-
-    pub fn debug_print(&self) {
-        println!("{:#?}", self);
     }
 }

@@ -57,7 +57,7 @@ impl GeometryBuilder for OrthoBuilder {
         positions
     }
 
-    fn build_home_positions(_config: &Config) -> HashMap<Finger, (f32, f32)> {
+    fn build_home_positions(_config: &Config) -> HashMap<Finger, (f64, f64)> {
         HOME_FINGER_DATA
             .iter()
             .map(|&(finger, offset, row)| {

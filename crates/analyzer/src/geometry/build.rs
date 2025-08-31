@@ -111,8 +111,7 @@ impl Geometry {
                     x,
                     y,
                     width_u: 1.0,
-                    block_id: None, // 固定キーにはblockIdは不要
-                    layer: 0,       // 固定キーはベースレイヤ
+                    layer: 0, // 固定キーはベースレイヤ
                 },
             );
 

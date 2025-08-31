@@ -13,5 +13,5 @@ pub trait GeometryBuilder {
     fn get_fixed_key_positions(config: &Config) -> Vec<(usize, usize, Vec<&'static str>)>; // (row_idx, start_u, key_name)
 
     /// ジオメトリ固有のホームポジション全体を設定
-    fn build_home_positions(config: &Config) -> HashMap<Finger, (f32, f32)>;
+    fn build_home_positions(config: &Config) -> HashMap<Finger, (f64, f64)>;
 }

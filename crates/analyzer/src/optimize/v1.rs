@@ -1,4 +1,6 @@
+pub mod arrows;
 pub mod solver;
 
 // Re-exports
-pub use solver::{ARROW_KEYS, Block, DIGIT_KEYS, KeyCandidate, solve_layout_v1};
+pub use arrows::{ArrowPlacement, generate_horizontal_candidates, generate_t_shape_candidates};
+pub use solver::solve_layout_v1;

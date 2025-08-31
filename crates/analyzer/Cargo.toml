@@ -10,7 +10,7 @@ license.workspace = true
 [dependencies]
 anyhow = "1"
 csv = "1"
-good_lp = { version = "1.14.0", features = ["coin_cbc"] }
+good_lp = { version = "1.14.0", features = ["highs"], default-features = false }
 image = { version = "0.25", features = ["png"] }
 imageproc = "0.25"
 ab_glyph = "0.2"

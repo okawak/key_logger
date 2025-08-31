@@ -14,5 +14,5 @@ pub use constants::{
 pub use csv_reader::{KeyFreq, read_key_freq};
 pub use error::KbOptError;
 pub use geometry::{Geometry, GeometryName, save_layout};
-pub use keys::{ArrowKey, KeyId, SymbolKey, all_movable_keys, allowed_widths};
+pub use keys::{ArrowKey, KeyId, SymbolKey};
 pub use optimize::{Solution, solve_layout};

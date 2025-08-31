@@ -23,7 +23,7 @@ fn main() -> Result<()> {
 
     // Load configuration file
     let config = Config::load_from_file(&args.config)?;
-    debug!("Loaded configuration: {:#?}", config.debug_print());
+    debug!("Loaded configuration: {:#?}", config);
 
     // Build geometry with configurable row count
     let mut geom = Geometry::build(&config)?;

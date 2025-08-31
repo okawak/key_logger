@@ -1,4 +1,5 @@
 pub mod fitts;
+pub mod precompute;
 pub mod v1;
 //pub mod v2;
 //pub mod v3;
@@ -7,6 +8,7 @@ pub mod v1;
 pub use fitts::{
     FingerwiseFittsCoefficients, compute_directional_effective_width, compute_fitts_time,
 };
+pub use precompute::{PrecomputedFitts, precompute_fitts_times};
 pub use v1::solve_layout_v1;
 //pub use v2::{SolveOptionsV2, solve_layout_v2};
 
