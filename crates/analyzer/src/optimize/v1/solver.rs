@@ -437,8 +437,8 @@ fn add_arrow_placements(
         let key_id = KeyId::Arrow(arrow_key);
 
         let center_mm = (
-            (col as f64 / 4.0 + 0.5) * 19.05, // ブロック中心 x
-            (r as f64 + 0.5) * 19.05,         // ブロック中心 y
+            (col as f64 / U2CELL as f64 + 0.5) * U2MM, // ブロック中心 x
+            (r as f64 + 0.5) * U2MM,                   // ブロック中心 y
         );
 
         let placement = KeyPlacement {
