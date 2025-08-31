@@ -45,11 +45,7 @@ pub fn generate_t_shape_candidates(geom: &Geometry) -> Vec<ArrowPlacement> {
     let s0 = U2CELL; // 基本セルサイズ s₀ = 4
 
     // r + 1 ≤ R_max
-    for r in 0..geom.cells.len() {
-        if r + 1 >= geom.cells.len() {
-            continue;
-        }
-
+    for r in 0..geom.cells.len() - 1 {
         let bottom_row_len = geom.cells[r].len();
         let top_row_len = geom.cells[r + 1].len();
 
