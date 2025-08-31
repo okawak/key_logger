@@ -2,6 +2,7 @@
 pub const ROW_STAGGER: &str = "row-stagger";
 pub const ORTHO: &str = "ortho";
 pub const COLUMN_STAGGER: &str = "column-stagger";
+pub const CUSTOM_LAYOUT: &str = "custom";
 
 /// Key layout settings (actual row number is set by toml config files)
 pub const MIN_ROW: usize = 4; // (min) [u] (only suit for row stagger/otho layout)
@@ -54,11 +55,6 @@ pub fn cell_to_key_center(row: usize, col: usize, width: f32) -> (f32, f32) {
     y += 0.5 * U2MM; // キーの中心位置（0.5u offset for center）
     (x, y)
 }
-
-/// Copilot feedback対応: 必要最小限のFitts定数のみ
-pub const DEFAULT_FITTS_A_MS: f64 = 50.0; // Default Fitts coefficient a (ms)
-pub const DEFAULT_FITTS_B_MS: f64 = 150.0; // Default Fitts coefficient b (ms)
-pub const STANDARD_KEY_HEIGHT_U: f32 = 1.0; // Standard key height in u units
 
 /// Euclidean distance calculation between two points
 #[inline]
