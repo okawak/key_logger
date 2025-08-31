@@ -24,6 +24,7 @@ Thumbs.db
 *.svg
 *.png
 *.html
+optimization.log
 
 # Local development
 .env

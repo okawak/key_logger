@@ -41,8 +41,8 @@ pub struct SolverConfig {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct FittsCoefficient {
-    pub a_ms: f32,
-    pub b_ms: f32,
+    pub a_ms: f64,
+    pub b_ms: f64,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

@@ -1,20 +1,24 @@
+use crate::constants::U2CELL;
 use crate::{
     config::Config,
     csv_reader::KeyFreq,
-    error::Result,
+    error::{KbOptError, Result},
     geometry::{
         Geometry,
         types::{KeyPlacement, PlacementType},
     },
-    keys::{KeyId, all_movable_keys},
+    keys::KeyId,
     optimize::{
         Solution,
         fitts::FingerwiseFittsCoefficients,
-        precompute::{PrecomputedFitts, get_valid_candidates_for_key, precompute_fitts_times},
+        precompute::{PrecomputedFitts, all_movable_keys, precompute_fitts_times},
         v1::arrows::{ArrowPlacement, generate_horizontal_candidates, generate_t_shape_candidates},
     },
 };
-use good_lp::{Expression, ProblemVariables, SolverModel, Variable, highs, variable};
+use good_lp::{
+    Expression, ProblemVariables, SolverModel, Variable, highs, solvers::highs::HighsProblem,
+    variable,
+};
 use std::collections::HashMap;
 
 /// docs/v1.mdに従った最適化
@@ -23,29 +27,29 @@ pub fn solve_layout_v1(geom: &mut Geometry, freqs: &KeyFreq, config: &Config) ->
 
     // 1. 指別Fitts係数の準備
     let fingerwise_coeffs = FingerwiseFittsCoefficients::from_config(config);
-    log::debug!("fitts coefficient: {:#?}", &fingerwise_coeffs.coefficients);
+    log::debug!("fitts coefficient: {:#?}", &fingerwise_coeffs);
 
-    // 2. docs/v1.md Section 2.3対応: Fitts時間の事前計算（MILP化）
+    // 2. Fitts時間の事前計算（MILP化）
     let precomputed = precompute_fitts_times(geom, &fingerwise_coeffs)?;
     log::info!(
         "complete fitts time caluclation: {} candidates",
         precomputed.candidates.len()
     );
 
-    // 3. docs/v1.md Section 1.2対応: 最適化対象キー集合Kの抽出
+    // 3. 最適化対象キー集合Kの抽出
     let movable_keys = all_movable_keys(config);
     log::info!("key numbers: {}", movable_keys.len());
 
-    // 4. docs/v1.md Section 3.2対応: 矢印キー配置候補の生成
+    // 4. 矢印キー配置候補の生成
     let horizontal_candidates = generate_horizontal_candidates(geom);
     let t_shape_candidates = generate_t_shape_candidates(geom);
     log::info!(
-        "矢印キー候補: 横一列={}, T字型={}",
+        "arrow keys candidate: horizontal={}, T shape={}",
         horizontal_candidates.len(),
         t_shape_candidates.len()
     );
 
-    // 5. docs/v1.md Section 4対応: 決定変数の定義
+    // 5. 決定変数の定義
     let mut vars = ProblemVariables::new();
     let (x_vars, x_var_info, z_h_vars, z_t_vars) = create_decision_variables(
         &mut vars,
@@ -55,7 +59,7 @@ pub fn solve_layout_v1(geom: &mut Geometry, freqs: &KeyFreq, config: &Config) ->
         &t_shape_candidates,
     );
 
-    // 6. docs/v1.md Section 5対応: 目的関数の構築
+    // 6. 目的関数の構築
     let probabilities = freqs.probabilities();
     let objective = build_objective_function(
         &x_var_info,
@@ -68,14 +72,15 @@ pub fn solve_layout_v1(geom: &mut Geometry, freqs: &KeyFreq, config: &Config) ->
         &z_t_vars,
     )?;
 
-    // 7. docs/v1.md Section 6対応: 制約条件の追加
+    // 7. 制約条件の追加
     let model = vars.minimise(objective).using(highs);
     let mut model = model
         .set_option("output_flag", true)
         .set_option("log_to_console", true)
+        .set_option("log_file", "optimization.log")
         .set_time_limit(60.0);
 
-    model = add_constraints_v1(
+    model = add_constraints(
         model,
         geom,
         &movable_keys,
@@ -88,13 +93,13 @@ pub fn solve_layout_v1(geom: &mut Geometry, freqs: &KeyFreq, config: &Config) ->
     )?;
 
     // 8. 最適化実行
-    log::info!("v1 MILPモデル求解開始");
+    log::info!("start solving v1 model...");
     let solution = model
         .solve()
-        .map_err(|e| crate::error::KbOptError::Solver(format!("v1最適化失敗: {}", e)))?;
+        .map_err(|e| KbOptError::Solver(format!("failed to solve: {}", e)))?;
 
     // 9. 解の構築
-    let result = build_solution_v1(
+    let result = build_solution(
         &solution,
         geom,
         &x_var_info,
@@ -108,11 +113,14 @@ pub fn solve_layout_v1(geom: &mut Geometry, freqs: &KeyFreq, config: &Config) ->
         config,
     )?;
 
-    log::info!("=== v1モデル完了: 目的値 {:.2}ms ===", result.objective_ms);
+    log::info!(
+        "=== sucessfully completed!: objective {:.2}ms ===",
+        result.objective_ms
+    );
     Ok(result)
 }
 
-/// docs/v1.md Section 4対応: 決定変数の定義
+/// 決定変数の定義
 ///
 /// 決定変数:
 /// - x_{k,r,i,s} ∈ {0,1}: 通常キー配置変数 (k ∈ K, (r,i,s) ∈ C)
@@ -127,23 +135,22 @@ fn create_decision_variables(
     t_shape_candidates: &[ArrowPlacement],
 ) -> (
     Vec<Variable>,                          // x_vars
-    Vec<(KeyId, usize, usize, usize, f32)>, // x_var_info: (key, r, i, s, fitts_time)
+    Vec<(KeyId, usize, usize, usize, f64)>, // x_var_info (キーと変数を対応づけるために必要)
     Vec<Variable>,                          // z_h_vars
     Vec<Variable>,                          // z_t_vars
 ) {
     let mut x_vars = Vec::new();
     let mut x_var_info = Vec::new();
 
-    // docs/v1.md Section 4.1: x_{k,r,i,s} ∈ {0,1}
+    // x_{k,r,i,s} ∈ {0,1}
     for &key in movable_keys {
-        let valid_candidates = get_valid_candidates_for_key(&key, precomputed);
-        for (r, i, s, fitts_time) in valid_candidates {
+        for (&(r, i, s), &t) in precomputed.candidates.iter() {
             x_vars.push(vars.add(variable().binary()));
-            x_var_info.push((key, r, i, s, fitts_time));
+            x_var_info.push((key, r, i, s, t));
         }
     }
 
-    // docs/v1.md Section 4.2: 矢印キー配置変数
+    // 矢印キー配置変数
     let z_h_vars: Vec<Variable> = (0..horizontal_candidates.len())
         .map(|_| vars.add(variable().binary()))
         .collect();
@@ -153,7 +160,7 @@ fn create_decision_variables(
         .collect();
 
     log::info!(
-        "決定変数数: x_vars={}, z_h_vars={}, z_t_vars={}",
+        "number of R^2: x_vars={}, z_h_vars={}, z_t_vars={}",
         x_vars.len(),
         z_h_vars.len(),
         z_t_vars.len()
@@ -162,14 +169,14 @@ fn create_decision_variables(
     (x_vars, x_var_info, z_h_vars, z_t_vars)
 }
 
-/// docs/v1.md Section 5対応: 目的関数の構築
+/// 目的関数の構築
 ///
 /// min (通常キー時間 + 矢印キー時間)
-/// = α Σ_{k∈K} Σ_{(r,i,s)∈C} p_k T(r,i,s) x_{k,r,i,s}
-///   + β [横一列項 + T字型項]
+/// = Σ_{k∈K} Σ_{(r,i,s)∈C} p_k T(r,i,s) x_{k,r,i,s}
+///   + [横一列項 + T字型項]
 #[allow(clippy::too_many_arguments)]
 fn build_objective_function(
-    x_var_info: &[(KeyId, usize, usize, usize, f32)],
+    x_var_info: &[(KeyId, usize, usize, usize, f64)],
     horizontal_candidates: &[ArrowPlacement],
     t_shape_candidates: &[ArrowPlacement],
     probabilities: &HashMap<KeyId, f64>,
@@ -180,72 +187,67 @@ fn build_objective_function(
 ) -> Result<Expression> {
     let mut objective = Expression::from(0.0);
 
-    // 重み係数（将来的に設定可能に）
-    let alpha = 1.0; // 通常キー重み
-    let beta = 1.0; // 矢印キー重み
-
-    // docs/v1.md Section 5.2: 通常キー時間項
-    // α Σ_{k∈K} Σ_{(r,i,s)∈C} p_k T(r,i,s) x_{k,r,i,s}
+    // 通常キー時間項
+    // Σ_{k∈K} Σ_{(r,i,s)∈C} p_k T(r,i,s) x_{k,r,i,s}
     for (i, &(key, _r, _i, _s, fitts_time)) in x_var_info.iter().enumerate() {
         let freq = probabilities.get(&key).copied().unwrap_or(0.0);
-        let cost = alpha * freq * fitts_time as f64;
+        let cost = freq * fitts_time;
         objective += cost * x_vars[i];
     }
 
-    // docs/v1.md Section 5.3: 矢印キー時間項
+    // 矢印キー時間項
 
-    // 横一列配置の場合: Σ_{(r,i)∈Ω_H} [Σ_{m=0}^3 p_{a_m} T(r, i + ms₀, s₀)] z^H_{r,i}
+    // 横一列配置の場合: Σ_{(r,i)∈Ω_H} [Σ_{m=0}^3 p_{a_m} T(r, i + m s₀, s₀)] z^H_{r,i}
     for (idx, placement) in horizontal_candidates.iter().enumerate() {
-        let mut placement_cost = 0.0;
+        let mut placement_cost: f64 = 0.0;
 
-        for (arrow_key, r, col) in placement.get_arrow_positions() {
+        for (arrow_key, r, i) in placement.get_arrow_positions() {
             let key_id = KeyId::Arrow(arrow_key);
             let freq = probabilities.get(&key_id).copied().unwrap_or(0.0);
 
-            // ブロックIDを生成してFitts時間を取得
-            let block_id = crate::geometry::types::BlockId::new(r, col / 4);
-            if let Some(&fitts_time) = precomputed.blocks.get(&block_id) {
-                placement_cost += freq * fitts_time as f64;
+            // T(r, i, s0=1u)
+            if let Some(&fitts_time) = precomputed.candidates.get(&(r, i, U2CELL)) {
+                placement_cost += freq * fitts_time;
             }
         }
 
-        objective += beta * placement_cost * z_h_vars[idx];
+        objective += placement_cost * z_h_vars[idx];
     }
 
     // T字型配置の場合
     for (idx, placement) in t_shape_candidates.iter().enumerate() {
         let mut placement_cost = 0.0;
 
-        for (arrow_key, r, col) in placement.get_arrow_positions() {
+        for (arrow_key, r, i) in placement.get_arrow_positions() {
             let key_id = KeyId::Arrow(arrow_key);
             let freq = probabilities.get(&key_id).copied().unwrap_or(0.0);
 
-            let block_id = crate::geometry::types::BlockId::new(r, col / 4);
-            if let Some(&fitts_time) = precomputed.blocks.get(&block_id) {
-                placement_cost += freq * fitts_time as f64;
+            // T(r, i, s0=1u)
+            if let Some(&fitts_time) = precomputed.candidates.get(&(r, i, U2CELL)) {
+                placement_cost += freq * fitts_time;
             }
         }
 
-        objective += beta * placement_cost * z_t_vars[idx];
+        objective += placement_cost * z_t_vars[idx];
     }
 
     Ok(objective)
 }
 
-/// docs/v1.md Section 6対応: 制約条件の追加
+/// 制約条件の追加
 #[allow(clippy::too_many_arguments)]
-fn add_constraints_v1(
-    mut model: good_lp::solvers::highs::HighsProblem,
+fn add_constraints(
+    mut model: HighsProblem,
     geom: &Geometry,
     movable_keys: &[KeyId],
-    x_var_info: &[(KeyId, usize, usize, usize, f32)],
+    x_var_info: &[(KeyId, usize, usize, usize, f64)],
     horizontal_candidates: &[ArrowPlacement],
     t_shape_candidates: &[ArrowPlacement],
     x_vars: &[Variable],
     z_h_vars: &[Variable],
     z_t_vars: &[Variable],
-) -> Result<good_lp::solvers::highs::HighsProblem> {
-    // docs/v1.md Section 6.1: 一意性制約
+) -> Result<HighsProblem> {
+    // 一意性制約
     // Σ_{(r,i,s)∈C} x_{k,r,i,s} = 1 ∀k ∈ K
     for &key in movable_keys {
         let key_indices: Vec<usize> = x_var_info
@@ -261,7 +263,7 @@ fn add_constraints_v1(
         }
     }
 
-    // docs/v1.md Section 6.2: 矢印配置の一意性
+    // 矢印配置の一意性
     // Σ_{(r,i)∈Ω_H} z^H_{r,i} + Σ_{(r,i)∈Ω_T} z^T_{r,i} = 1
     let arrow_sum: Expression = z_h_vars
         .iter()
@@ -270,8 +272,8 @@ fn add_constraints_v1(
         .sum();
     model = model.with(arrow_sum.eq(1.0));
 
-    // docs/v1.md Section 6.3: 物理的非重複制約
-    model = add_non_overlap_constraints_v1(
+    // 物理的非重複制約
+    model = add_non_overlap_constraints(
         model,
         geom,
         x_var_info,
@@ -285,20 +287,20 @@ fn add_constraints_v1(
     Ok(model)
 }
 
-/// docs/v1.md Section 6.3対応: 物理的非重複制約
+/// 物理的非重複制約
 /// 各セルは最大1つのキーのみが占有可能
 /// Σ_{k∈K} Σ_{(r,i,s)∈C, i≤j≤i+s-1} x_{k,r,i,s} + φ^arrow_{rj} + O_{rj} ≤ 1
 #[allow(clippy::too_many_arguments)]
-fn add_non_overlap_constraints_v1(
-    mut model: good_lp::solvers::highs::HighsProblem,
+fn add_non_overlap_constraints(
+    mut model: HighsProblem,
     geom: &Geometry,
-    x_var_info: &[(KeyId, usize, usize, usize, f32)],
+    x_var_info: &[(KeyId, usize, usize, usize, f64)],
     horizontal_candidates: &[ArrowPlacement],
     t_shape_candidates: &[ArrowPlacement],
     x_vars: &[Variable],
     z_h_vars: &[Variable],
     z_t_vars: &[Variable],
-) -> Result<good_lp::solvers::highs::HighsProblem> {
+) -> Result<HighsProblem> {
     // 各セルに対して制約を作成
     for r in 0..geom.cells.len() {
         for j in 0..geom.cells[r].len() {
@@ -315,7 +317,7 @@ fn add_non_overlap_constraints_v1(
                 }
             }
 
-            // docs/v1.md Section 6.4対応: 矢印占有関数 φ^arrow_{rj}
+            // 矢印占有関数 φ^arrow_{rj}
 
             // 横一列配置の占有
             for (idx, placement) in horizontal_candidates.iter().enumerate() {
@@ -342,10 +344,10 @@ fn add_non_overlap_constraints_v1(
 
 /// 解の構築
 #[allow(clippy::too_many_arguments)]
-fn build_solution_v1(
+fn build_solution(
     solution: &dyn good_lp::Solution,
     geom: &mut Geometry,
-    x_var_info: &[(KeyId, usize, usize, usize, f32)],
+    x_var_info: &[(KeyId, usize, usize, usize, f64)],
     horizontal_candidates: &[ArrowPlacement],
     t_shape_candidates: &[ArrowPlacement],
     precomputed: &PrecomputedFitts,
@@ -365,12 +367,12 @@ fn build_solution_v1(
     // 通常キー配置の復元と目的関数値計算
     for (idx, &(key, r, i, s, fitts_time)) in x_var_info.iter().enumerate() {
         if solution.value(x_vars[idx]) > threshold {
-            let width_u = s as f32 / 4.0; // セル → u 変換
+            let width_u = s as f64 / 4.0; // セル → u 変換
 
             // docs/v1.md Section 2.1対応: 中心座標計算
             let center_mm = (
-                (i as f32 + s as f32 / 2.0) * (19.05 / 4.0), // Δ_mm = d_mm/4
-                (r as f32 + 0.5) * 19.05,                    // y_r
+                (i as f64 + s as f64 / 2.0) * (19.05 / 4.0), // Δ_mm = d_mm/4
+                (r as f64 + 0.5) * 19.05,                    // y_r
             );
 
             let placement = KeyPlacement {
@@ -379,7 +381,6 @@ fn build_solution_v1(
                 x: center_mm.0,
                 y: center_mm.1,
                 width_u,
-                block_id: None,
                 layer: 0,
             };
 
@@ -387,7 +388,7 @@ fn build_solution_v1(
 
             // 目的関数値に貢献度を加算: p_k × T(r,i,s)
             let prob = probabilities.get(&key).copied().unwrap_or(0.0);
-            objective_value += prob * fitts_time as f64;
+            objective_value += prob * fitts_time;
         }
     }
 
@@ -400,9 +401,8 @@ fn build_solution_v1(
             for (arrow_key, r, col) in placement.get_arrow_positions() {
                 let key_id = KeyId::Arrow(arrow_key);
                 let prob = probabilities.get(&key_id).copied().unwrap_or(0.0);
-                let block_id = crate::geometry::types::BlockId::new(r, col / 4);
-                if let Some(&fitts_time) = precomputed.blocks.get(&block_id) {
-                    objective_value += prob * fitts_time as f64;
+                if let Some(&fitts_time) = precomputed.candidates.get(&(r, col, U2CELL)) {
+                    objective_value += prob * fitts_time;
                 }
             }
         }
@@ -416,9 +416,8 @@ fn build_solution_v1(
             for (arrow_key, r, col) in placement.get_arrow_positions() {
                 let key_id = KeyId::Arrow(arrow_key);
                 let prob = probabilities.get(&key_id).copied().unwrap_or(0.0);
-                let block_id = crate::geometry::types::BlockId::new(r, col / 4);
-                if let Some(&fitts_time) = precomputed.blocks.get(&block_id) {
-                    objective_value += prob * fitts_time as f64;
+                if let Some(&fitts_time) = precomputed.candidates.get(&(r, col, U2CELL)) {
+                    objective_value += prob * fitts_time;
                 }
             }
         }
@@ -437,11 +436,10 @@ fn add_arrow_placements(
 ) {
     for (arrow_key, r, col) in placement.get_arrow_positions() {
         let key_id = KeyId::Arrow(arrow_key);
-        let block_id = crate::geometry::types::BlockId::new(r, col / 4);
 
         let center_mm = (
-            (col as f32 / 4.0 + 0.5) * 19.05, // ブロック中心 x
-            (r as f32 + 0.5) * 19.05,         // ブロック中心 y
+            (col as f64 / 4.0 + 0.5) * 19.05, // ブロック中心 x
+            (r as f64 + 0.5) * 19.05,         // ブロック中心 y
         );
 
         let placement = KeyPlacement {
@@ -450,7 +448,6 @@ fn add_arrow_placements(
             x: center_mm.0,
             y: center_mm.1,
             width_u: 1.0,
-            block_id: Some(block_id),
             layer: 0,
         };
 

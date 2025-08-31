@@ -20,17 +20,17 @@ use std::{
 
 /// キー中心座標をピクセル座標に変換（Y軸反転、center-to-center）
 #[inline]
-fn key_center_to_px(u_x: f32, u_y: f32) -> (f32, f32) {
+fn key_center_to_px(u_x: f64, u_y: f64) -> (f64, f64) {
     let px_x = MARGIN + u_x * U2PX;
-    let px_y = MARGIN + (MAX_ROW as f32 - u_y) * U2PX;
+    let px_y = MARGIN + (MAX_ROW as f64 - u_y) * U2PX;
     (px_x, px_y)
 }
 
 /// Cell中心座標をピクセル座標に変換（Y軸反転、cell-to-center）
 #[inline]
-fn cell_center_to_px(cell_row: usize, cell_col: usize) -> (f32, f32) {
-    let u_x = (cell_col as f32 + 0.5) / U2CELL as f32;
-    let u_y = cell_row as f32 + 0.5; // 行は既にu単位なので、中心計算のため0.5を加算
+fn cell_center_to_px(cell_row: usize, cell_col: usize) -> (f64, f64) {
+    let u_x = (cell_col as f64 + 0.5) / U2CELL as f64;
+    let u_y = cell_row as f64 + 0.5; // 行は既にu単位なので、中心計算のため0.5を加算
     key_center_to_px(u_x, u_y)
 }
 
@@ -59,20 +59,20 @@ impl Renderer {
     }
 
     /// 矩形を描画（塗りつぶし）
-    pub fn draw_rect(&mut self, x: f32, y: f32, width: f32, height: f32, color: Rgb<u8>) {
+    pub fn draw_rect(&mut self, x: f64, y: f64, width: f64, height: f64, color: Rgb<u8>) {
         let rect = Rect::at(x as i32, y as i32).of_size(width as u32, height as u32);
         draw_filled_rect_mut(&mut self.image, rect, color);
     }
 
     /// 矩形の境界線のみを描画（内部は透明）
-    pub fn draw_rect_outline(&mut self, x: f32, y: f32, width: f32, height: f32, color: Rgb<u8>) {
+    pub fn draw_rect_outline(&mut self, x: f64, y: f64, width: f64, height: f64, color: Rgb<u8>) {
         let rect = Rect::at(x as i32, y as i32).of_size(width as u32, height as u32);
         draw_hollow_rect_mut(&mut self.image, rect, color);
     }
 
     /// テキストを描画
-    pub fn draw_text(&mut self, x: f32, y: f32, text: &str, font_size: f32, color: Rgb<u8>) {
-        let scale = PxScale::from(font_size);
+    pub fn draw_text(&mut self, x: f64, y: f64, text: &str, font_size: f64, color: Rgb<u8>) {
+        let scale = PxScale::from(font_size as f32);
         draw_text_mut(
             &mut self.image,
             color,
@@ -85,8 +85,8 @@ impl Renderer {
     }
 
     /// 座標変換関数を生成
-    pub fn create_coord_transform(&self, y_min_u: f32) -> impl Fn(f32, f32) -> (f32, f32) + '_ {
-        move |u_x: f32, u_y: f32| -> (f32, f32) {
+    pub fn create_coord_transform(&self, y_min_u: f64) -> impl Fn(f64, f64) -> (f64, f64) + '_ {
+        move |u_x: f64, u_y: f64| -> (f64, f64) {
             let px_x = MARGIN + u_x * U2PX;
             let px_y = MARGIN + (u_y - y_min_u) * U2PX;
             (px_x, px_y)
@@ -156,8 +156,8 @@ pub fn render_layout<P: AsRef<Path>>(
     output_path: P,
     render_finger_bg: bool,
 ) -> Result<()> {
-    let geom_w_px = (MAX_COL_CELLS as f32 / U2CELL as f32) * U2PX;
-    let geom_h_px = MAX_ROW as f32 * U2PX;
+    let geom_w_px = (MAX_COL_CELLS as f64 / U2CELL as f64) * U2PX;
+    let geom_h_px = MAX_ROW as f64 * U2PX;
 
     let width = (geom_w_px + LEGEND_WIDTH + MARGIN * 3.0) as u32;
     let height = (geom_h_px + MARGIN * 2.0) as u32;
@@ -222,14 +222,14 @@ pub fn render_layout_with_layers<P: AsRef<Path>>(
     render_finger_bg: bool,
     layer_symbols: &[(String, usize, String)], // (symbol, layer_number, modifier_key)
 ) -> Result<()> {
-    let geom_w_px = (MAX_COL_CELLS as f32 / U2CELL as f32) * U2PX;
-    let geom_h_px = MAX_ROW as f32 * U2PX;
+    let geom_w_px = (MAX_COL_CELLS as f64 / U2CELL as f64) * U2PX;
+    let geom_h_px = MAX_ROW as f64 * U2PX;
 
     // ベースレイヤーとレイヤー1の2つを表示（最大レイヤー数は2に固定）
     let layer_count = 2;
     let layer_spacing = 60.0; // レイヤー間のスペース
     let total_height =
-        geom_h_px * layer_count as f32 + MARGIN * (layer_count + 1) as f32 + layer_spacing;
+        geom_h_px * layer_count as f64 + MARGIN * (layer_count + 1) as f64 + layer_spacing;
 
     let width = (geom_w_px + LEGEND_WIDTH + MARGIN * 3.0) as u32;
     let height = total_height as u32;
@@ -239,7 +239,7 @@ pub fn render_layout_with_layers<P: AsRef<Path>>(
 
     // 各レイヤを描画（ベースレイヤーとレイヤー1のみ）
     for layer_num in 0..layer_count {
-        let layer_y_offset = (geom_h_px + MARGIN + layer_spacing) * layer_num as f32 + MARGIN;
+        let layer_y_offset = (geom_h_px + MARGIN + layer_spacing) * layer_num as f64 + MARGIN;
 
         // レイヤタイトルを描画
         let layer_title = if layer_num == 0 {
@@ -313,7 +313,7 @@ fn render_from_geometry(
 
 /// 指領域を描画
 fn render_finger_regions(renderer: &mut Renderer, geom: &Geometry) -> Result<()> {
-    let cell_size_px = U2PX / U2CELL as f32; // 1cell -> px
+    let cell_size_px = U2PX / U2CELL as f64; // 1cell -> px
 
     for row in &geom.cells {
         for cell in row {
@@ -502,7 +502,7 @@ fn render_all_keys(renderer: &mut Renderer, geom: &Geometry, freqs: &KeyFreq) ->
         };
 
         // キー名を描画（キー中心）
-        let text_x = px_x - U2PX / 10.0 - U2PX / 15.0 * (display_text.chars().count() - 1) as f32;
+        let text_x = px_x - U2PX / 10.0 - U2PX / 15.0 * (display_text.chars().count() - 1) as f64;
         let text_y = px_y - U2PX / 3.0; // offsetを調整
         let text_color = Colors::BLACK; // 透明背景に黒いテキスト
 
@@ -548,8 +548,8 @@ fn render_legend(
     renderer: &mut Renderer,
     _geom: &Geometry,
     _freqs: &KeyFreq,
-    legend_x: f32,
-    legend_y: f32,
+    legend_x: f64,
+    legend_y: f64,
 ) -> Result<()> {
     let line_height = 20.0;
     let mut current_y = legend_y + 20.0;
@@ -618,7 +618,7 @@ fn render_layer_geometry(
     geom: &Geometry,
     freqs: &KeyFreq,
     render_finger_bg: bool,
-    y_offset: f32,
+    y_offset: f64,
     layer_symbols: &[(String, usize, String)], // (symbol, layer_number, modifier_key)
 ) -> Result<()> {
     // 1. 指領域（cells）を描画
@@ -644,7 +644,7 @@ fn render_layer_geometry_improved(
     geom: &Geometry,
     freqs: &KeyFreq,
     render_finger_bg: bool,
-    y_offset: f32,
+    y_offset: f64,
     layer_symbols: &[(String, usize, String)], // (symbol, layer_number, modifier_key)
     layer_num: usize,
 ) -> Result<()> {
@@ -673,7 +673,7 @@ fn render_layer_geometry_improved(
 fn render_empty_key_frames_with_offset(
     renderer: &mut Renderer,
     geom: &Geometry,
-    y_offset: f32,
+    y_offset: f64,
 ) -> Result<()> {
     for key_placement in geom.key_placements.values() {
         // key_placementのx, yはmm単位なので、u単位に変換してからpx変換
@@ -713,7 +713,7 @@ fn render_layer_keys_only(
     renderer: &mut Renderer,
     geom: &Geometry,
     freqs: &KeyFreq,
-    y_offset: f32,
+    y_offset: f64,
     layer_symbols: &[(String, usize, String)],
 ) -> Result<()> {
     // レイヤーキーとして配置されているキーのみを描画
@@ -768,7 +768,7 @@ fn render_layer_keys_only(
 
             // キー名を描画（キー中心）
             let text_x =
-                px_x - U2PX / 10.0 - U2PX / 15.0 * (display_text.chars().count() - 1) as f32;
+                px_x - U2PX / 10.0 - U2PX / 15.0 * (display_text.chars().count() - 1) as f64;
             let text_y = adjusted_px_y - U2PX / 3.0;
             renderer.draw_text(text_x, text_y, display_text, FONT_SIZE, Colors::BLACK);
 
@@ -791,9 +791,9 @@ fn render_layer_keys_only(
 fn render_finger_regions_with_offset(
     renderer: &mut Renderer,
     geom: &Geometry,
-    y_offset: f32,
+    y_offset: f64,
 ) -> Result<()> {
-    let cell_size_px = U2PX / U2CELL as f32; // 1cell -> px
+    let cell_size_px = U2PX / U2CELL as f64; // 1cell -> px
 
     for row in &geom.cells {
         for cell in row {
@@ -829,7 +829,7 @@ fn render_all_keys_with_offset(
     renderer: &mut Renderer,
     geom: &Geometry,
     freqs: &KeyFreq,
-    y_offset: f32,
+    y_offset: f64,
 ) -> Result<()> {
     for (key_name, key_placement) in &geom.key_placements {
         // key_placementのx, yはmm単位なので、u単位に変換してからpx変換
@@ -989,7 +989,7 @@ fn render_all_keys_with_offset(
         };
 
         // キー名を描画（キー中心）
-        let text_x = px_x - U2PX / 10.0 - U2PX / 15.0 * (display_text.chars().count() - 1) as f32;
+        let text_x = px_x - U2PX / 10.0 - U2PX / 15.0 * (display_text.chars().count() - 1) as f64;
         let text_y = adjusted_px_y - U2PX / 3.0; // offsetを調整
         let text_color = Colors::BLACK; // 透明背景に黒いテキスト
 
@@ -1015,7 +1015,7 @@ fn render_layer_symbols(
     renderer: &mut Renderer,
     geom: &Geometry,
     layer_symbols: &[(String, usize, String)], // (symbol, layer_number, modifier_key)
-    y_offset: f32,
+    y_offset: f64,
 ) -> Result<()> {
     // アルファベットキーの座標を取得して、その上に記号を表示
     for (symbol, _layer_num, modifier_key) in layer_symbols {
@@ -1045,7 +1045,7 @@ fn render_layer_symbols(
             );
 
             // レイヤ記号を描画
-            let text_x = px_x - U2PX / 15.0 * (symbol.chars().count() - 1) as f32;
+            let text_x = px_x - U2PX / 15.0 * (symbol.chars().count() - 1) as f64;
             let text_y = adjusted_px_y - U2PX / 2.0 + 5.0; // キーの上部
             renderer.draw_text(text_x, text_y, symbol, FONT_SIZE * 0.8, Colors::BLACK);
 
@@ -1063,7 +1063,7 @@ fn render_layer_symbols(
 fn render_home_positions_with_offset(
     renderer: &mut Renderer,
     geom: &Geometry,
-    y_offset: f32,
+    y_offset: f64,
 ) -> Result<()> {
     for (home_x, home_y) in geom.homes.values() {
         // home座標はmm単位なので、u単位に変換してからpx変換
@@ -1090,8 +1090,8 @@ fn render_layer_legend(
     renderer: &mut Renderer,
     _geom: &Geometry,
     _freqs: &KeyFreq,
-    legend_x: f32,
-    legend_y: f32,
+    legend_x: f64,
+    legend_y: f64,
     layer_symbols: &[(String, usize, String)],
 ) -> Result<()> {
     let line_height = 20.0;

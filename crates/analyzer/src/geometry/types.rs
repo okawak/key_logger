@@ -37,19 +37,6 @@ impl CellId {
     }
 }
 
-/// 1u ブロック（矢印用の占有単位）
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct BlockId {
-    pub row_u: usize, // 1u ブロック行（u単位）
-    pub col_u: usize, // 1u ブロック列（0.25u 4セルごと）
-}
-
-impl BlockId {
-    pub fn new(row_u: usize, col_u: usize) -> Self {
-        Self { row_u, col_u }
-    }
-}
-
 /// Information for a single cell
 #[derive(Debug, Clone)]
 pub struct Cell {
@@ -71,28 +58,32 @@ pub enum PlacementType {
 #[derive(Debug, Clone)]
 pub struct KeyPlacement {
     pub placement_type: PlacementType,
-    pub key_id: Option<KeyId>,     // 定義されたキーID（オプション）
-    pub x: f32,                    // x coordinate [mm]
-    pub y: f32,                    // y coordinate [mm]
-    pub width_u: f32,              // キー幅 [u]
-    pub block_id: Option<BlockId>, // 矢印キー用のブロックID（オプション）
-    pub layer: u8,                 // レイヤ番号（0=ベースレイヤ、1以上=モディファイアレイヤ）
+    pub key_id: Option<KeyId>, // 定義されたキーID（オプション）
+    pub x: f64,                // x coordinate [mm]
+    pub y: f64,                // y coordinate [mm]
+    pub width_u: f64,          // キー幅 [u]
+    pub layer: u8,             // レイヤ番号（0=ベースレイヤ、1以上=モディファイアレイヤ）
 }
 
 /// Overall geometry
 #[derive(Debug, Clone)]
 pub struct Geometry {
+    /// 配列の名前 (enum)
     pub name: GeometryName,
-    pub cells: Vec<Vec<Cell>>,                         // cells[row][col]
-    pub homes: HashMap<Finger, (f32, f32)>,            // Finger → home coordinates [R^2]
+    /// 二次元のセル情報: cells[row][col]
+    pub cells: Vec<Vec<Cell>>,
+    /// 指ごとのホームポジション座標: Finger → (x_mm, y_mm)
+    pub homes: HashMap<Finger, (f64, f64)>,
+    /// キー配置マップ (結果が格納される): KeyId → KeyPlacement
     pub key_placements: HashMap<String, KeyPlacement>, // store all key placements
-    pub max_layers: usize,                             // 最大レイヤ番号（最適化結果に応じて変動）
+    /// 最大のレイヤ番号 (v2以降で使用)
+    pub max_layers: usize,
 }
 
 /// Candidate set for general keys (start cell and allowed widths)
 #[derive(Debug, Clone)]
 pub struct KeyCandidates {
-    pub starts: Vec<(CellId, Vec<f32>)>, // (Start cell, width candidates)
+    pub starts: Vec<(CellId, Vec<f64>)>, // (Start cell, width candidates)
 }
 
 /// Finger enum と文字列の変換ユーティリティ
@@ -112,7 +103,7 @@ pub fn finger_from_string(s: &str) -> Option<Finger> {
     }
 }
 
-pub fn finger_to_string(finger: Finger) -> &'static str {
+pub fn finger_to_string(finger: &Finger) -> &'static str {
     match finger {
         Finger::LThumb => "LThumb",
         Finger::LIndex => "LIndex",

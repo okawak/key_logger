@@ -1,23 +1,18 @@
-use crate::{
-    constants::U2CELL,
-    geometry::Geometry,
-    keys::{ArrowKey, KeyId},
-};
+use crate::{constants::U2CELL, geometry::Geometry, keys::ArrowKey};
 
-/// docs/v1.md Section 3.2に対応: 矢印キー配置パターン
+/// 矢印キー配置パターン
 #[derive(Debug, Clone)]
 pub enum ArrowPlacement {
-    /// 横一列配置: docs/v1.md Section 3.2.1
+    /// 横一列配置
     /// 配置順序: ← ↓ ↑ → （位置 i, i+s₀, i+2s₀, i+3s₀）
     Horizontal { r: usize, i: usize },
-
-    /// T字型配置: docs/v1.md Section 3.2.2
+    /// T字型配置
     /// 下段: ← ↓ → (行r, 位置i, i+s₀, i+2s₀)
     /// 上段: ↑ (行r+1, 位置i+s₀)
     TShape { r: usize, i: usize },
 }
 
-/// docs/v1.md Section 3.2.1に対応: 横一列配置候補集合Ω_H
+/// 横一列配置候補集合Ω_H
 /// Ω_H = {(r, i) | r ∈ R, 0 ≤ i ≤ C - 4s₀, 連続空間確保}
 pub fn generate_horizontal_candidates(geom: &Geometry) -> Vec<ArrowPlacement> {
     let mut candidates = Vec::new();
@@ -43,7 +38,7 @@ pub fn generate_horizontal_candidates(geom: &Geometry) -> Vec<ArrowPlacement> {
     candidates
 }
 
-/// docs/v1.md Section 3.2.2に対応: T字型配置候補集合Ω_T
+/// T字型配置候補集合Ω_T
 /// Ω_T = {(r, i) | r + 1 ≤ R_max, 0 ≤ i ≤ C - 3s₀, T字空間確保}
 pub fn generate_t_shape_candidates(geom: &Geometry) -> Vec<ArrowPlacement> {
     let mut candidates = Vec::new();
@@ -108,7 +103,7 @@ impl ArrowPlacement {
         }
     }
 
-    /// 占有されるセルの一覧を取得（物理非重複制約用）
+    /// 占有されるセル(r, i)の一覧を取得（物理非重複制約用）
     pub fn get_occupied_cells(&self) -> Vec<(usize, usize)> {
         let s0 = U2CELL;
         let mut cells = Vec::new();
@@ -135,11 +130,3 @@ impl ArrowPlacement {
         cells
     }
 }
-
-/// docs/v1.md対応: 矢印キー集合 A = {↑, ↓, ←, →}
-pub const ARROW_KEYS: [KeyId; 4] = [
-    KeyId::Arrow(ArrowKey::Up),
-    KeyId::Arrow(ArrowKey::Down),
-    KeyId::Arrow(ArrowKey::Left),
-    KeyId::Arrow(ArrowKey::Right),
-];
