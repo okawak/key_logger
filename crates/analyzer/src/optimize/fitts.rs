@@ -84,10 +84,10 @@ pub fn compute_fitts_time(
     coeffs: &FingerwiseFittsCoefficients,
 ) -> Result<f64> {
     // 1. 距離計算
-    let distance_mm = euclid_distance(key_center_mm, home_position_mm);
+    let distance = euclid_distance(key_center_mm, home_position_mm);
 
     // 2. 有効幅計算
-    let effective_width_u = {
+    let effective_width = {
         // 方向角計算
         let dx = key_center_mm.0 - home_position_mm.0;
         let dy = key_center_mm.1 - home_position_mm.1;
@@ -100,15 +100,13 @@ pub fn compute_fitts_time(
         )
     };
 
-    let effective_width_mm = effective_width_u * U2MM;
-
     // 3. 指別Fitts時間計算
     let (a_f, b_f) = coeffs.get_coeffs(finger).ok_or(KbOptError::Config(format!(
         "finger coefficient is not defined: {}",
         finger_to_string(&finger)
     )))?;
 
-    Ok(fitts_law(distance_mm, effective_width_mm, a_f, b_f))
+    Ok(fitts_law(distance, effective_width, a_f, b_f))
 }
 
 /// 方向依存の有効幅計算（楕円近似）

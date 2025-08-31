@@ -1,6 +1,6 @@
-use crate::constants::U2CELL;
 use crate::{
     config::Config,
+    constants::{U2CELL, U2MM},
     csv_reader::KeyFreq,
     error::{KbOptError, Result},
     geometry::{
@@ -77,8 +77,7 @@ pub fn solve_layout_v1(geom: &mut Geometry, freqs: &KeyFreq, config: &Config) ->
     let mut model = model
         .set_option("output_flag", true)
         .set_option("log_to_console", true)
-        .set_option("log_file", "optimization.log")
-        .set_time_limit(60.0);
+        .set_option("log_file", "optimization.log");
 
     model = add_constraints(
         model,
@@ -367,12 +366,12 @@ fn build_solution(
     // 通常キー配置の復元と目的関数値計算
     for (idx, &(key, r, i, s, fitts_time)) in x_var_info.iter().enumerate() {
         if solution.value(x_vars[idx]) > threshold {
-            let width_u = s as f64 / 4.0; // セル → u 変換
+            let width_u = s as f64 / U2CELL as f64; // セル → u 変換
 
-            // docs/v1.md Section 2.1対応: 中心座標計算
+            // 中心座標計算
             let center_mm = (
-                (i as f64 + s as f64 / 2.0) * (19.05 / 4.0), // Δ_mm = d_mm/4
-                (r as f64 + 0.5) * 19.05,                    // y_r
+                (i as f64 + s as f64 / 2.0) * (U2MM / U2CELL as f64), // Δ_mm = d_mm/4
+                (r as f64 + 0.5) * U2MM,                              // y_r
             );
 
             let placement = KeyPlacement {
