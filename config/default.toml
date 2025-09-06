@@ -7,8 +7,9 @@ csv_dir = "csv"          # データのCSVディレクトリ
 
 # 最適化オプション (全てデフォルト値があるのでこれらはオプション)
 include_fkeys = false
-include_digits = false   # 数字行も最適化に含めるか
-max_rows = 6             # 最大行数（4-6）
+include_digits = true   # 数字行も最適化に含めるか
+include_alphabet = true # アルファベット(A-Z)も最適化に含めるか
+max_rows = 5             # 最大行数（4-6）
 align_left_edge = false  # 左端揃え (未実装)
 align_right_edge = false # 右端揃え (未実装)
 solution_threshold = 0.5
@@ -16,50 +17,41 @@ solution_threshold = 0.5
 # 指別Fitts係数設定
 [fingerwise_coeffs]
 [fingerwise_coeffs.LIndex]
-a_ms = 40.0
-b_ms = 120.0
+a_ms = 144.3
+b_ms = 75.64
 
 [fingerwise_coeffs.RIndex]
-a_ms = 40.0
-b_ms = 120.0
+a_ms = 144.3
+b_ms = 75.64
 
 [fingerwise_coeffs.LMiddle]
-a_ms = 45.0
-b_ms = 130.0
+a_ms = 147.0
+b_ms = 79.0
 
 [fingerwise_coeffs.RMiddle]
-a_ms = 45.0
-b_ms = 130.0
+a_ms = 147.0
+b_ms = 79.0
 
 [fingerwise_coeffs.LRing]
-a_ms = 55.0
-b_ms = 145.0
+a_ms = 152.0
+b_ms = 90.1
 
 [fingerwise_coeffs.RRing]
-a_ms = 55.0
-b_ms = 145.0
+a_ms = 152.0
+b_ms = 90.1
 
 [fingerwise_coeffs.LPinky]
-a_ms = 65.0
-b_ms = 160.0
+a_ms = 155.0
+b_ms = 97.0
 
 [fingerwise_coeffs.RPinky]
-a_ms = 65.0
-b_ms = 160.0
+a_ms = 155.0
+b_ms = 97.0
 
 [fingerwise_coeffs.LThumb]
-a_ms = 50.0
-b_ms = 140.0
+a_ms = 155.3
+b_ms = 93.0
 
 [fingerwise_coeffs.RThumb]
-a_ms = 50.0
-b_ms = 140.0
-
-
-[v1]
-# 数字クラスタ設定
-# include_digits = true の場合に有効
-[v1.digit_cluster]
-enforce_sequence = true
-enforce_horizontal = true
-allowed_rows = [4]
+a_ms = 155.3
+b_ms = 93.0

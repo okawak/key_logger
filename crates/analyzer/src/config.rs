@@ -30,6 +30,8 @@ pub struct SolverConfig {
     #[serde(default)]
     pub include_digits: bool, // 数字キーも最適化に含めるか(固定するかどうか)
     #[serde(default)]
+    pub include_alphabet: bool, // アルファベット(A-Z)も最適化に含めるか(固定するかどうか)
+    #[serde(default)]
     pub max_rows: usize, // geometryの行数（デフォルト6）
     #[serde(default)]
     pub align_left_edge: bool, // 左端揃え
@@ -45,29 +47,9 @@ pub struct FittsCoefficient {
     pub b_ms: f64,
 }
 
+// 特に設定値なし
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct V1Config {
-    /// 数字クラスタ設定
-    #[serde(default)]
-    pub digit_cluster: DigitClusterConfig,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct DigitClusterConfig {
-    pub enforce_sequence: bool,
-    pub enforce_horizontal: bool,
-    pub allowed_rows: Vec<usize>,
-}
-
-impl Default for DigitClusterConfig {
-    fn default() -> Self {
-        Self {
-            enforce_sequence: true,
-            enforce_horizontal: true,
-            allowed_rows: vec![4], // デフォルトでは通常の配列と同じ(下から)4行目のみ
-        }
-    }
-}
+pub struct V1Config {}
 
 // まだ未実装
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -105,6 +87,7 @@ impl Default for Config {
                 csv_dir: String::new(),
                 include_fkeys: false,
                 include_digits: false,
+                include_alphabet: false,
                 max_rows: 6,
                 align_left_edge: false,
                 align_right_edge: false,
@@ -186,16 +169,6 @@ impl Config {
                 "include_fkeys is true, but max_rows < {}",
                 MIN_ROW + 2
             )));
-        }
-
-        if let Some(v1config) = &self.v1
-            && solver_config.include_digits
-            && v1config.digit_cluster.allowed_rows.is_empty()
-        {
-            return Err(KbOptError::Config(
-                "digit_cluster.allowed_rows cannot be empty when include_digits is true"
-                    .to_string(),
-            ));
         }
 
         Ok(())

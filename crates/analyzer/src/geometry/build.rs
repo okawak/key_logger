@@ -47,7 +47,7 @@ impl Geometry {
                         finger_by_x
                     } else {
                         // 小指以外は親指が担当
-                        if col <= MAX_COL_CELLS / 2 {
+                        if col < MAX_COL_CELLS / 2 {
                             Finger::LThumb
                         } else {
                             Finger::RThumb

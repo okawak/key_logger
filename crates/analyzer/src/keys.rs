@@ -200,8 +200,9 @@ pub fn str_to_keyid(str: &str) -> Option<KeyId> {
 pub fn parse_key_label(label: &str) -> Option<KeyId> {
     use ArrowKey::*;
     use KeyId::*;
-    //use ModifierKey::*;
+    use LetterKey::*;
     use SymbolKey::*;
+    //use ModifierKey::*;
 
     let s = label.trim();
     if s.is_empty() {
@@ -209,12 +210,40 @@ pub fn parse_key_label(label: &str) -> Option<KeyId> {
     }
 
     // One character keys
-    // - ASCII alphabetic characters are not considered optimized keys
+    // - ASCII alphabetic characters
     // - ASCII digits are considered keys (0-9)
     if s.len() == 1 {
         let ch = s.as_bytes()[0];
         if ch.is_ascii_alphabetic() {
-            return None;
+            match ch.to_ascii_uppercase() {
+                b'A' => return Some(Letter(A)),
+                b'B' => return Some(Letter(B)),
+                b'C' => return Some(Letter(C)),
+                b'D' => return Some(Letter(D)),
+                b'E' => return Some(Letter(E)),
+                b'F' => return Some(Letter(F)),
+                b'G' => return Some(Letter(G)),
+                b'H' => return Some(Letter(H)),
+                b'I' => return Some(Letter(I)),
+                b'J' => return Some(Letter(J)),
+                b'K' => return Some(Letter(K)),
+                b'L' => return Some(Letter(L)),
+                b'M' => return Some(Letter(M)),
+                b'N' => return Some(Letter(N)),
+                b'O' => return Some(Letter(O)),
+                b'P' => return Some(Letter(P)),
+                b'Q' => return Some(Letter(Q)),
+                b'R' => return Some(Letter(R)),
+                b'S' => return Some(Letter(S)),
+                b'T' => return Some(Letter(T)),
+                b'U' => return Some(Letter(U)),
+                b'V' => return Some(Letter(V)),
+                b'W' => return Some(Letter(W)),
+                b'X' => return Some(Letter(X)),
+                b'Y' => return Some(Letter(Y)),
+                b'Z' => return Some(Letter(Z)),
+                _ => return None,
+            };
         }
         if ch.is_ascii_digit() {
             return Some(Digit(ch - b'0'));
@@ -240,7 +269,7 @@ pub fn parse_key_label(label: &str) -> Option<KeyId> {
         "rightbracket" | "]" => return Some(Symbol(RBracket)),
         "backslash" | "\\" => return Some(Symbol(Backslash)),
         "semicolon" | ";" => return Some(Symbol(Semicolon)),
-        "apostrophe" | "'" => return Some(Symbol(Quote)),
+        "apostrophe" | "'" | "unknown" => return Some(Symbol(Quote)), // キーロガーの初期不具合のため
         "comma" | "," => return Some(Symbol(Comma)),
         "period" | "dot" | "." => return Some(Symbol(Period)),
         "slash" | "/" => return Some(Symbol(Slash)),

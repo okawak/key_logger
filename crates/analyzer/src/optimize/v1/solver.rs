@@ -10,7 +10,7 @@ use crate::{
     keys::KeyId,
     optimize::{
         Solution,
-        fitts::FingerwiseFittsCoefficients,
+        fitts::{FingerwiseFittsCoefficients, compute_fitts_time},
         precompute::{PrecomputedFitts, all_movable_keys, precompute_fitts_times},
         v1::arrows::{ArrowPlacement, generate_horizontal_candidates, generate_t_shape_candidates},
     },
@@ -341,6 +341,68 @@ fn add_non_overlap_constraints(
     Ok(model)
 }
 
+/// 固定キーの目的関数への寄与分を計算
+fn calculate_fixed_keys_contribution(
+    geom: &Geometry,
+    probabilities: &HashMap<KeyId, f64>,
+    fingerwise_coeffs: &FingerwiseFittsCoefficients,
+) -> Result<f64> {
+    let mut fixed_contribution = 0.0;
+
+    for placement in geom.key_placements.values() {
+        if placement.placement_type == PlacementType::Fixed
+            && let Some(key_id) = placement.key_id
+        {
+            // 確率を取得
+            let prob = probabilities.get(&key_id).copied().unwrap_or(0.0);
+            if prob == 0.0 {
+                continue;
+            }
+
+            // キー中心座標
+            let key_center_mm = (placement.x, placement.y);
+
+            // 座標からセル位置を逆算して担当指を取得
+            let row = ((placement.y / U2MM).round() as usize).saturating_sub(1);
+            let col =
+                ((placement.x / U2MM * U2CELL as f64).round() as usize).saturating_sub(U2CELL / 2);
+
+            if row >= geom.cells.len() || col >= geom.cells[row].len() {
+                continue;
+            }
+
+            let finger = geom.cells[row][col].finger;
+
+            // ホーム位置を取得
+            let home_position = geom.homes.get(&finger).ok_or_else(|| {
+                KbOptError::Config(format!("Home position not found for finger {:?}", finger))
+            })?;
+
+            // Fitts時間を計算
+            let key_width_cell = (placement.width_u * U2CELL as f64) as usize;
+            let fitts_time = compute_fitts_time(
+                finger,
+                key_center_mm,
+                *home_position,
+                key_width_cell,
+                fingerwise_coeffs,
+            )?;
+
+            fixed_contribution += prob * fitts_time;
+            log::debug!(
+                "Fixed key {:?}: prob={:.6}, fitts_time={:.2}ms, contribution={:.4}ms",
+                key_id,
+                prob,
+                fitts_time,
+                prob * fitts_time
+            );
+        }
+    }
+
+    log::info!("Fixed keys total contribution: {:.2}ms", fixed_contribution);
+    Ok(fixed_contribution)
+}
+
 /// 解の構築
 #[allow(clippy::too_many_arguments)]
 fn build_solution(
@@ -422,8 +484,19 @@ fn build_solution(
         }
     }
 
+    // 固定キーの寄与分を計算して加算
+    let fingerwise_coeffs = FingerwiseFittsCoefficients::from_config(config);
+    let fixed_contribution =
+        calculate_fixed_keys_contribution(geom, probabilities, &fingerwise_coeffs)?;
+
+    let total_objective = objective_value + fixed_contribution;
+
+    log::info!("Optimized keys contribution: {:.2}ms", objective_value);
+    log::info!("Fixed keys contribution: {:.2}ms", fixed_contribution);
+    log::info!("Total objective value: {:.2}ms", total_objective);
+
     Ok(Solution {
-        objective_ms: objective_value,
+        objective_ms: total_objective,
     })
 }
 

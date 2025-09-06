@@ -9,3 +9,7 @@ run = "cargo fmt --all -- --check && cargo clippy --all-targets --all-features -
 [tasks.runinfo]
 description = "run analyzer with info level logging"
 run = "RUST_LOG=info cargo run --release --bin analyzer -- --config config/default.toml"
+
+[tasks.rundebug]
+description = "run analyzer with debug level logging"
+run = "RUST_LOG=debug cargo run --release --bin analyzer -- --config config/default.toml"

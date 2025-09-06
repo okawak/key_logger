@@ -143,6 +143,12 @@ pub fn read_key_freq(config: &Config) -> Result<KeyFreq> {
         )));
     }
 
+    log::info!(
+        "Processed {} CSV files from {}",
+        csv_files_processed,
+        dir_path.display()
+    );
+
     Ok(merged_freq)
 }
 
@@ -223,10 +229,6 @@ fn parse_record(rec: &StringRecord, row: usize) -> Result<Option<(KeyId, u64)>> 
             let count = parse_count_value(count_str, row)?;
             Ok(Some((kid, count)))
         }
-        //None if opt.strict_unknown_keys => Err(KbOptError::UnknownKey {
-        //    row,
-        //    label: key_label.to_string(),
-        //}),
         None => Ok(None),
     }
 }

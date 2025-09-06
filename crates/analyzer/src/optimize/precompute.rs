@@ -97,6 +97,16 @@ pub fn all_movable_keys(config: &Config) -> Vec<KeyId> {
 
     let mut v = Vec::new();
 
+    // include_alphabetがtrueの場合、アルファベットも最適化候補に入れる
+    if config.solver.include_alphabet {
+        use crate::keys::LetterKey::*;
+        for letter in [
+            A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
+        ] {
+            v.push(Letter(letter));
+        }
+    }
+
     // include_digitがtrueの場合、最適化候補に入れる
     if config.solver.include_digits {
         for d in 0..=9 {

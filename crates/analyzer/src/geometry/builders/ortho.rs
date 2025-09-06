@@ -42,10 +42,12 @@ impl GeometryBuilder for OrthoBuilder {
     fn get_fixed_key_positions(config: &Config) -> Vec<(usize, usize, Vec<&'static str>)> {
         let mut positions = Vec::with_capacity(if config.solver.include_digits { 4 } else { 3 });
 
-        // Add standard letter rows
-        for &(row_idx, keys) in FIXED_KEYS {
-            let start_cell = (MIDDLE_CELL as i32 + ROW_OFFSETS[row_idx - 1]) as usize;
-            positions.push((row_idx, start_cell, keys.to_vec()));
+        // Add standard letter rows (only if include_alphabet is false)
+        if !config.solver.include_alphabet {
+            for &(row_idx, keys) in FIXED_KEYS {
+                let start_cell = (MIDDLE_CELL as i32 + ROW_OFFSETS[row_idx - 1]) as usize;
+                positions.push((row_idx, start_cell, keys.to_vec()));
+            }
         }
 
         // include_digitsがfalseの場合、数字行は固定とする

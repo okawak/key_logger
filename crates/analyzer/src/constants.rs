@@ -7,7 +7,7 @@ pub const CUSTOM_LAYOUT: &str = "custom";
 /// Key layout settings (actual row number is set by toml config files)
 pub const MIN_ROW: usize = 4; // (min) [u] (only suit for row stagger/otho layout)
 pub const MAX_ROW: usize = 6; // (max) [u] (only suit for row stagger/otho layout)
-pub const MAX_COL_CELLS: usize = 80; // (max) 20 [u] x 4 = 80 [cell] should be >= 12u (48)
+pub const MAX_COL_CELLS: usize = 56; // (max) 20 [u] x 4 = 80 [cell] should be >= 12u (48)
 pub const MIDDLE_CELL: usize = MAX_COL_CELLS / 2; // middle cell index
 pub const MIN_WIDTH_CELLS: usize = 4; // allowed key width [cell] (1u=4cell)
 pub const MAX_WIDTH_CELLS: usize = 12; // allowed key width [cell] (3u=12cell)
