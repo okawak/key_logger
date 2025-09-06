@@ -44,7 +44,7 @@ dependencies = [
 
 [[package]]
 name = "analyzer"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "ab_glyph",
  "anyhow",
@@ -1068,7 +1068,7 @@ dependencies = [
 
 [[package]]
 name = "key_logger"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "anyhow",
  "chrono",
