@@ -9,7 +9,7 @@ use crate::{
 use std::collections::HashMap;
 
 // Row offsets from middle cell (negative = left shift)
-const ROW_OFFSETS: [i32; 4] = [-18, -20, -21, -22];
+const ROW_OFFSETS: [i32; 4] = [-18, -20, -21, -23];
 
 const _: () = assert!(ROW_OFFSETS.len() >= 4, "ROW_OFFSET should be larger than 4"); // 4 rows (including digit row)
 
